@@ -22,7 +22,7 @@ Below is functions I wrap in make.h
 |listdir(dir, callback)|Function which iterate all items in directory `dir`, for each item invoke function `callback`. `callback` takes 3 parameters: directory, base name and extension. If item is file, combination is complete file path. If item is directory, base name and extension are NULL.|
 |mtime(...)|Macro which get one or more file modification time and returns latest one. Paremeters are file names, return value is double.|
 
-Below is an example of make.c, isn't it quite simple?
+Below is an example of make.c, compare to those sucking makefiles, isn't it quite simple?
 
 ```c
 #include "make.h"
