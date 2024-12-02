@@ -1,6 +1,6 @@
 # How to get rid of annoying build systems such as gmake, nmake, cmake
 
-I don't like those build systems, I think they break their own belief "mechanism better than policy" and "keep it simple stupid". Why should I learn other configuration rules? They are not even turing complete programming languages, they are ugly and sucks. Since c compiler is almost fundermental of every operating systems, I wrap necessary functions into a single tiny portable header file so that I can write build script using c code. I am satisfied to make it simpler than those annoying rules, and customers are also happy because they nolonger need to install those annoying softwares, all they need is type "gcc make.c && ./a.out" or in windows "cl make.c && make.exe", that's enough.
+I don't like those build systems, I think they break their own belief "mechanism better than policy" and "keep it simple stupid". Why should I learn other configuration rules? They are not even turing complete programming languages, they are ugly and sucks. Since c compiler is almost fundermental of every operating systems, I wrap necessary functions into a single tiny portable header file so that I can write build script using c code. I am satisfied to make it simpler than those annoying rules, and customers are also happy because they nolonger need to install those annoying softwares, all they need is type `gcc make.c && ./a.out` or in windows `cl make.c && make.exe`, that's enough.
 
 Below is functions I wrap in make.h
 
