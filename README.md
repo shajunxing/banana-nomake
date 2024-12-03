@@ -1,26 +1,31 @@
 # How to get rid of annoying build systems such as gmake, nmake, cmake
 
-I don't like those build systems, I think they break their own belief "mechanism better than policy" and "keep it simple stupid". Why should I learn other configuration rules? They are not even turing complete programming languages, they are ugly and sucks. Since c compiler is almost fundermental of every operating systems, I wrap necessary functions into a single tiny portable header file so that I can write build script using c code. I am satisfied to make it simpler than those annoying rules, and customers are also happy because they nolonger need to install those annoying softwares, all they need is type `gcc make.c && ./a.out` or in windows `cl make.c && make.exe`, that's enough.
+I don't like those build systems, I think they break their own belief "mechanism better than policy" and "keep it simple stupid". Why should I learn those configuration rules? They are not even turing complete programming languages, they are ugly and sucks. Since c compiler is almost fundermental of every operating systems, I wrap necessary functions into a single tiny portable header file so that I can write build script using c code. I am satisfied to make it simpler than those annoying rules, and customers are also happy because they nolonger need to install those annoying softwares, all they need is type `gcc make.c && ./a.out` or in windows `cl make.c && make.exe`, that's enough.
 
-Below is functions I wrap in make.h
+Below are global constants I wrap in make.h:
 
-|name|description|
-|-|-|
-|compiler|Global enum constant which indicate compiler type. Current possible value is `{msvc, gcc}`.|
-|max(...)|Macro which take one or more double values, and returns maximum one.|
-|join(sep, ...)|Macro which join multiple strings by given seperator `sep`, return string should be freed when used up.|
-|concat(...)|Macro which concatenate multiple strings, return string should be freed when used up.|
-|append(dest, src)|Function which append string `src` to end of string `dest`, `dest` must be dynamically allocated.|
-|equals(str1, str2)|Function which determine two strings `str1 str2` are equal.|
-|startswith(str, prefix)|Function which determine whether string `str` starts with `prefix`.|
-|endswith(str, suffix)|Function which determine whether string `str` ends with `suffix`.|
-|os|Global enum constant which indicate operating system type. Current possible value is `{windows, posix}`.|
-|pathsep|Global string constant which indicate path seperator.|
-|objext|Global string constant which indicate file extension of compiled object.|
-|dllext|Global string constant which indicate file extension of linked shared library.|
-|exeext|Global string constant which indicate path extension of linked executable.|
-|listdir(dir, callback)|Function which iterate all items in directory `dir`, for each item invoke function `callback`. `callback` takes 3 parameters: directory, base name and extension. If item is file, combination is complete file path. If item is directory, base name and extension are NULL.|
-|mtime(...)|Macro which get one or more file modification time and returns latest one. Paremeters are file names, return value is double.|
+|Name|Type|Description|
+|-|-|-|
+|compiler|enum|Compiler type, can be one of `msvc gcc`.|
+|dllext|char *|File extension of linked shared library, e.g `.dll .so`|
+|exeext|char *|File extension of linked executable, e.g `.exe`|
+|objext|char *|File extension of compiled object, e.g `.obj .o`|
+|os|enum|Operating system type, can be one of `windows posix`.|
+|pathsep|char *|File system path seperator, , e.g `\\ /`|
+
+And functions or macros:
+
+|Name|Parameters|Return|Description|
+|-|-|-|-|
+|append|char **dest, char *src|void|Append `src` to end of `dest`, `dest` must be dynamically allocated.|
+|concat|char *...|char *|Concatenate multiple strings, return string should be freed when used up.|
+|endswith|char *str, char *suffix|int|Determine whether `str` ends with `suffix`.|
+|equals|char *str1, char *str2|int|Determine whether `str1 str2` are equal.|
+|join|char *sep, char *...|char *|Join multiple strings by given seperator `sep`, return string should be freed when used up.|
+|listdir|char *dir, void (*callback)(char *, char *, char *)|void|Iterate all items in directory `dir`, for each item invoke `callback`, which takes 3 parameters: directory, base name and extension. If item is file, combination is complete file path, and if is directory, base name and extension are NULL.|
+|max|double ...|double|Take one or more double values, returns maximum one.|
+|mtime|char *...|double|Get one or more file modification time and returns latest one.|
+|startswith|char *str, char *prefix|char *|Determine whether `str` starts with `prefix`.|
 
 Below is an example of make.c, compare to those sucking makefiles, isn't it quite simple?
 
