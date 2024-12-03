@@ -52,7 +52,7 @@ void compile(const char *dir, const char *base, const char *ext) {
         append(&obj_files, obj);
         append(&obj_files, " ");
         if (max(hdr_mtime, src_mtime) > mtime(obj)) {
-            char *cmd = (compiler == msvc) ? concat("cl.exe /nologo /c /O2 /MD /wd4819 /Fo", obj, " ", src) : concat("gcc -c -s -O3 -Wall -std=gnu2x -Wl,--exclude-all-symbols -static -static-libgcc -D NDEBUG -shared -D DLL -D EXPORT -o ", obj, " ", src);
+            char *cmd = compiler == msvc ? concat("cl.exe /nologo /c /O2 /MD /wd4819 /Fo", obj, " ", src) : concat("gcc -c -s -O3 -Wall -std=gnu2x -Wl,--exclude-all-symbols -static -static-libgcc -D NDEBUG -shared -D DLL -D EXPORT -o ", obj, " ", src);
             run(cmd);
             free(cmd);
         }
@@ -63,9 +63,9 @@ void compile(const char *dir, const char *base, const char *ext) {
 
 void build() {
     obj_files = (char *)calloc(1, 1);
-    listdir(src_dir, compile); // compile stage
-    if (max(hdr_mtime, latest_src_mtime) > mtime(dll)) { // link stage
-        char *cmd = (compiler == msvc) ? concat("cl.exe /nologo /c /O2 /MD /wd4819 /Fo") : concat("gcc -s -O3 -Wall -std=gnu2x -Wl,--exclude-all-symbols -static -static-libgcc -D NDEBUG -shared -D DLL -D EXPORT -o ", dll, " ", obj_files);
+    listdir(src_dir, compile); // compilation stage
+    if (max(hdr_mtime, latest_src_mtime) > mtime(dll)) { // linking stage
+        char *cmd = compiler == msvc ? concat("cl.exe /nologo /c /O2 /MD /wd4819 /Fo") : concat("gcc -s -O3 -Wall -std=gnu2x -Wl,--exclude-all-symbols -static -static-libgcc -D NDEBUG -shared -D DLL -D EXPORT -o ", dll, " ", obj_files);
         run(cmd);
         free(cmd);
     }
