@@ -22,9 +22,10 @@ And functions or macros:
 |endswith|char *str, char *suffix|int|Determine whether `str` ends with `suffix`.|
 |equals|char *str1, char *str2|int|Determine whether `str1 str2` are equal.|
 |join|char *sep, char *...|char *|Join multiple strings by given seperator `sep`, return string should be freed when used up.|
-|listdir|char *dir, void (*callback)(char *, char *, char *)|void|Iterate all items in directory `dir`, for each item invoke `callback`, which takes 3 parameters: directory, base name and extension. If item is file, combination is complete file path, and if is directory, base name and extension are NULL.|
+|listdir|char *dir, void (*callback)(char *, char *, char *)|void|Iterate all items in directory `dir`, whether `dir` ends with or without path seperator doesn't matter, for each item invoke `callback`, which takes 3 parameters: `dir`, `base` and `ext`, `dir` always ends with path seperator. If item is file, combination is complete file path, `ext` will be `""` if file has no extension. If is directory, `dir` will be subdirectory's full path, `base` and `ext` will be `NULL`.|
 |max|double ...|double|Take one or more double values, returns maximum one.|
-|mtime|char *...|double|Get one or more file modification time and returns latest one.|
+|mtime|char *...|double|Get one or more file modification utc time and returns latest one.|
+|run|char *cmd|void|Print and run command line `cmd`. If return value is not 0, print error message and exit program.|
 |startswith|char *str, char *prefix|char *|Determine whether `str` starts with `prefix`.|
 
 Below is an example of make.c, compare to those sucking makefiles, isn't it quite simple?
@@ -32,8 +33,11 @@ Below is an example of make.c, compare to those sucking makefiles, isn't it quit
 ```c
 #include "make.h"
 
-int debug = 0;
+char *src_dir = NULL;
+char *dll = NULL;
+char *hdr = NULL;
 double hdr_mtime = -DBL_MAX;
+int debug = 0;
 double latest_src_mtime = -DBL_MAX;
 char *obj_files = NULL;
 
@@ -42,53 +46,43 @@ void compile(const char *dir, const char *base, const char *ext) {
         char *src = concat(dir, base, ext);
         double src_mtime = mtime(src);
         char *obj = concat(dir, base, objext);
-        char *cmd;
-        if (compiler == msvc) {
-            cmd = concat("cl.exe /nologo /c /O2 /MD /wd4819 /Fo", obj, " ", src);
-        } else {
-            cmd = concat("gcc -c -s -O3 -Wall -std=gnu2x -Wl,--exclude-all-symbols -static -static-libgcc -D NDEBUG -shared -D DLL -D EXPORT -o ", obj, " ", src);
-        }
         if (src_mtime > latest_src_mtime) {
             latest_src_mtime = src_mtime;
         }
         append(&obj_files, obj);
         append(&obj_files, " ");
         if (max(hdr_mtime, src_mtime) > mtime(obj)) {
-            puts(cmd);
-            assert(system(cmd) == 0);
+            char *cmd = (compiler == msvc) ? concat("cl.exe /nologo /c /O2 /MD /wd4819 /Fo", obj, " ", src) : concat("gcc -c -s -O3 -Wall -std=gnu2x -Wl,--exclude-all-symbols -static -static-libgcc -D NDEBUG -shared -D DLL -D EXPORT -o ", obj, " ", src);
+            run(cmd);
+            free(cmd);
         }
-        free(cmd);
         free(obj);
         free(src);
     }
 }
 
 void build() {
-    char *src_dir = concat(".", pathsep, "src", pathsep);
-    char *dll = concat(".", pathsep, "bin", pathsep, "var", dllext);
-    char *hdr = concat(src_dir, pathsep, "var.h");
-    hdr_mtime = mtime(hdr);
     obj_files = (char *)calloc(1, 1);
-    listdir(src_dir, compile); // 编译
-    if (max(hdr_mtime, latest_src_mtime) > mtime(dll)) { // 链接
-        char *cmd;
-        if (compiler == msvc) {
-            cmd = concat("cl.exe /nologo /c /O2 /MD /wd4819 /Fo");
-        } else {
-            cmd = concat("gcc -s -O3 -Wall -std=gnu2x -Wl,--exclude-all-symbols -static -static-libgcc -D NDEBUG -shared -D DLL -D EXPORT -o ", dll, " ", obj_files);
-        }
-        puts(cmd);
-        assert(system(cmd) == 0);
+    listdir(src_dir, compile); // compile stage
+    if (max(hdr_mtime, latest_src_mtime) > mtime(dll)) { // link stage
+        char *cmd = (compiler == msvc) ? concat("cl.exe /nologo /c /O2 /MD /wd4819 /Fo") : concat("gcc -s -O3 -Wall -std=gnu2x -Wl,--exclude-all-symbols -static -static-libgcc -D NDEBUG -shared -D DLL -D EXPORT -o ", dll, " ", obj_files);
+        run(cmd);
         free(cmd);
     }
     free(obj_files);
-    free(hdr);
-    free(dll);
-    free(src_dir);
+}
+
+void cleanup(const char *dir, const char *base, const char *ext) {
+    if (ext && equals(ext, objext)) {
+        char *obj = concat(dir, base, objext);
+        remove(obj);
+        free(obj);
+    }
 }
 
 void clean() {
-    puts("clean");
+    listdir(src_dir, cleanup);
+    remove(dll);
 }
 
 void install() {
@@ -96,6 +90,10 @@ void install() {
 }
 
 int main(int argc, char **argv) {
+    src_dir = concat(".", pathsep, "src", pathsep);
+    dll = concat(".", pathsep, "bin", pathsep, "var", dllext);
+    hdr = concat(src_dir, pathsep, "var.h");
+    hdr_mtime = mtime(hdr);
     if (argc == 1) {
         build();
     } else if (argc == 2) {
@@ -110,6 +108,10 @@ int main(int argc, char **argv) {
             install();
         }
     }
+    free(hdr);
+    free(dll);
+    free(src_dir);
     return 0;
 }
+
 ```
