@@ -75,10 +75,23 @@ char *_join(const char *sep, int num, ...) {
 #define join(sep, ...) _join(sep, numargs(__VA_ARGS__), ##__VA_ARGS__)
 #define concat(...) join("", ##__VA_ARGS__)
 
-void append(char **dest, const char *src) {
-    *dest = (char *)realloc(*dest, strlen(*dest) + strlen(src) + 1);
-    strcat(*dest, src);
+void _append(char **dest, int num, ...) {
+    va_list args;
+    int i, len;
+    len = strlen(dest);
+    va_start(args, num);
+    for (i = 0; i < num; i++) {
+        len += strlen(va_arg(args, char *));
+    }
+    va_end(args);
+    *dest = (char *)realloc(*dest, len + 1);
+    va_start(args, num);
+    for (i = 0; i < num; i++) {
+        strcat(*dest, va_arg(args, char *));
+    }
+    va_end(args);
 }
+#define append(dest, ...) _append(dest, numargs(__VA_ARGS__), ##__VA_ARGS__)
 
 int equals(const char *str1, const char *str2) {
     return strcmp(str1, str2) == 0;
@@ -119,7 +132,7 @@ enum os_type { windows,
 #if defined(_WIN32)
 
     #define WIN32_LEAN_AND_MEAN
-    #include <direct.h> // includeing functions getcwd, chdir, mkdir, rmdir
+    #include <direct.h> // including functions getcwd, chdir, mkdir, rmdir
     #include <windows.h>
 
 enum os_type os = windows;
