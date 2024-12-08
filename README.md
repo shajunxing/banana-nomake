@@ -17,7 +17,7 @@ And functions or macros:
 
 |Name|Parameters|Return|Description|
 |-|-|-|-|
-|append|char **dest, char *src|void|Append `src` to end of `dest`, `dest` must be dynamically allocated.|
+|append|char **dest, char *...|void|Append multiple strings sequentially to end of `dest`, `dest` must be dynamically allocated.|
 |concat|char *...|char *|Concatenate multiple strings, return string should be freed when used up.|
 |endswith|char *str, char *suffix|int|Determine whether `str` ends with `suffix`.|
 |equals|char *str1, char *str2|int|Determine whether `str1 str2` are equal.|
@@ -49,8 +49,7 @@ void compile(const char *dir, const char *base, const char *ext) {
         if (src_mtime > latest_src_mtime) {
             latest_src_mtime = src_mtime;
         }
-        append(&obj_files, obj);
-        append(&obj_files, " ");
+        append(&obj_files, obj, " ");
         if (max(hdr_mtime, src_mtime) > mtime(obj)) {
             char *cmd = compiler == msvc ? concat("cl.exe /nologo /c /O2 /MD /wd4819 /Fo", obj, " ", src) : concat("gcc -c -s -O3 -Wall -std=gnu2x -Wl,--exclude-all-symbols -static -static-libgcc -D NDEBUG -shared -D DLL -D EXPORT -o ", obj, " ", src);
             run(cmd);
@@ -111,7 +110,6 @@ int main(int argc, char **argv) {
     free(hdr);
     free(dll);
     free(src_dir);
-    return 0;
 }
 
 ```
