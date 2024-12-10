@@ -51,6 +51,9 @@ double _max(int num, ...) {
 #endif
 #define max(...) _max(numargs(__VA_ARGS__), ##__VA_ARGS__)
 
+// https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/countof-macro?view=msvc-170
+#define countof(array) (sizeof(array) / sizeof(array[0]))
+
 char *_join(const char *sep, int num, ...) {
     va_list args;
     int i, len;
@@ -78,7 +81,7 @@ char *_join(const char *sep, int num, ...) {
 void _append(char **dest, int num, ...) {
     va_list args;
     int i, len;
-    len = strlen(dest);
+    len = strlen(*dest);
     va_start(args, num);
     for (i = 0; i < num; i++) {
         len += strlen(va_arg(args, char *));
@@ -135,11 +138,18 @@ enum os_type { windows,
     #include <direct.h> // including functions getcwd, chdir, mkdir, rmdir
     #include <windows.h>
 
-enum os_type os = windows;
-const char *pathsep = "\\";
-const char *objext = ".obj";
-const char *dllext = ".dll";
-const char *exeext = ".exe";
+    #define dllext ".dll" // use define instead of const for easily string literal concatenation
+    #define exeext ".exe"
+    #if defined(_MSC_VER)
+        #define libext ".lib"
+        #define objext ".obj"
+    #else
+        #define libext ".a"
+        #define objext ".o"
+    #endif
+    #define pathsep "\\"
+
+const enum os_type os = windows;
 
 double __mtime(const char *filename) {
     HANDLE fh;
@@ -200,11 +210,13 @@ void listdir(const char *dir, void (*callback)(const char *, const char *, const
     #include <sys/stat.h>
     #include <unistd.h>
 
-enum os_type os = posix;
-const char *pathsep = "/";
-const char *objext = ".o";
-const char *dllext = ".so";
-const char *exeext = "";
+    #define dllext ".so"
+    #define exeext ""
+    #define libext ".a"
+    #define objext ".o"
+    #define pathsep "/"
+
+const enum os_type os = posix;
 
 double __mtime(const char *filename) {
     struct stat sb;
