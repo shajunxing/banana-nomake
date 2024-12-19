@@ -30,7 +30,7 @@ And functions/macros:
 |run|char *cmd|void|Print and run command line `cmd`. If return value is not 0, print error message and exit program.|
 |startswith|char *str, char *prefix|char *|Determine whether `str` starts with `prefix`.|
 
-Below is an example of make.c, compare to those sucking makefiles, isn't it quite simple?
+Below is an example of make.c, it certainly handles file modification time correctly and compiles incrementally correctly, compare to those sucking makefiles, isn't it quite simple?
 
 ```c
 #include "make.h"
