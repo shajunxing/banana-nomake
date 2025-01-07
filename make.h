@@ -18,10 +18,29 @@ You should have received a copy of the GNU General Public License along with thi
 enum compiler_type { msvc,
                      gcc };
 
+enum os_type { windows,
+               posix };
+
 #if defined(_MSC_VER)
+    #define libext ".lib"
+    #define objext ".obj"
 const enum compiler_type compiler = msvc;
 #else
+    #define libext ".a"
+    #define objext ".o"
 const enum compiler_type compiler = gcc;
+#endif
+
+#if defined(_WIN32)
+    #define dllext ".dll" // use define instead of const for easily string literal concatenation
+    #define exeext ".exe"
+    #define pathsep "\\"
+const enum os_type os = windows;
+#else
+    #define dllext ".so"
+    #define exeext ""
+    #define pathsep "/"
+const enum os_type os = posix;
 #endif
 
 // https://stackoverflow.com/questions/2124339/c-preprocessor-va-args-number-of-arguments compatible with msvc
@@ -32,10 +51,10 @@ const enum compiler_type compiler = gcc;
 #define numargs(...) _expand(_numargs(_, ##__VA_ARGS__, 63, 62, 61, 60, 59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0))
 
 // do not use float, because va_arg needs double, see https://stackoverflow.com/questions/11270588/variadic-function-va-arg-doesnt-work-with-float same below
-double _max(int num, ...) {
+double _max(size_t num, ...) {
     double ret = -DBL_MAX;
     va_list args;
-    int i;
+    size_t i;
     va_start(args, num);
     for (i = 0; i < num; i++) {
         double v = va_arg(args, double);
@@ -54,9 +73,9 @@ double _max(int num, ...) {
 // https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/countof-macro?view=msvc-170
 #define countof(array) (sizeof(array) / sizeof(array[0]))
 
-char *_join(const char *sep, int num, ...) {
+char *_join(const char *sep, size_t num, ...) {
     va_list args;
-    int i, len;
+    size_t i, len;
     char *ret;
     va_start(args, num);
     for (len = 0, i = 0; i < num; i++) {
@@ -78,9 +97,9 @@ char *_join(const char *sep, int num, ...) {
 #define join(sep, ...) _join(sep, numargs(__VA_ARGS__), ##__VA_ARGS__)
 #define concat(...) join("", ##__VA_ARGS__)
 
-void _append(char **dest, int num, ...) {
+void _append(char **dest, size_t num, ...) {
     va_list args;
-    int i, len;
+    size_t i, len;
     len = strlen(*dest);
     va_start(args, num);
     for (i = 0; i < num; i++) {
@@ -101,8 +120,8 @@ int equals(const char *str1, const char *str2) {
 }
 
 int startswith(const char *str, const char *prefix) {
-    int len = strlen(str);
-    int prefixlen = strlen(prefix);
+    size_t len = strlen(str);
+    size_t prefixlen = strlen(prefix);
     if (prefixlen > len) {
         return 0;
     }
@@ -110,8 +129,8 @@ int startswith(const char *str, const char *prefix) {
 }
 
 int endswith(const char *str, const char *suffix) {
-    int len = strlen(str);
-    int suffixlen = strlen(suffix);
+    size_t len = strlen(str);
+    size_t suffixlen = strlen(suffix);
     if (suffixlen > len) {
         return 0;
     }
@@ -129,27 +148,11 @@ int endswith(const char *str, const char *suffix) {
         }                                                                 \
     } while (0)
 
-enum os_type { windows,
-               posix };
-
 #if defined(_WIN32)
 
     #define WIN32_LEAN_AND_MEAN
     #include <direct.h> // including functions getcwd, chdir, mkdir, rmdir
     #include <windows.h>
-
-    #define dllext ".dll" // use define instead of const for easily string literal concatenation
-    #define exeext ".exe"
-    #if defined(_MSC_VER)
-        #define libext ".lib"
-        #define objext ".obj"
-    #else
-        #define libext ".a"
-        #define objext ".o"
-    #endif
-    #define pathsep "\\"
-
-const enum os_type os = windows;
 
 double __mtime(const char *filename) {
     HANDLE fh;
@@ -189,7 +192,7 @@ void listdir(const char *dir, void (*callback)(const char *, const char *, const
             } else {
                 char *ext = strrchr(fd.cFileName, '.');
                 if (ext) {
-                    int baselen = ext - fd.cFileName;
+                    size_t baselen = ext - fd.cFileName;
                     char *base = (char *)calloc(baselen + 1, 1);
                     strncpy(base, fd.cFileName, baselen);
                     callback(standardized_dir, base, ext);
@@ -209,14 +212,6 @@ void listdir(const char *dir, void (*callback)(const char *, const char *, const
 
     #include <sys/stat.h>
     #include <unistd.h>
-
-    #define dllext ".so"
-    #define exeext ""
-    #define libext ".a"
-    #define objext ".o"
-    #define pathsep "/"
-
-const enum os_type os = posix;
 
 double __mtime(const char *filename) {
     struct stat sb;
