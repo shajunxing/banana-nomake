@@ -1,38 +1,12 @@
-# How to get rid of annoying build systems such as gmake, nmake, cmake
+# Banana Make，只用一个make.h文件，取代那些令人生厌的gmake、nmake、cmake......构建系统
 
-This article is openly licensed via [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/).
+本文使用 [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/) 许可。
 
-Project Address: <https://github.com/shajunxing/banana-make>
+项目地址：<https://github.com/shajunxing/banana-make>
 
-I don't like those build systems, I think they break their own belief "mechanism better than policy" and "keep it simple stupid". Why should one learn those ugly and rigid rules? Wouldn't a Turing-Complete programming language be better? Since C compiler is essential, encapsulate necessary functions into a header file, most important points I summarized as follows: 1. **Recursive traversal of file and directories**; 2. **Comparison of file timestamps**; 3. **Serial and parallel execution of commands**, then I can happily write scripts in C, right? Customers would be happy too, as they won't need to install any additional build systems, they can simply type `gcc make.c && ./a.out` or `cl make.c && make.exe`, isn't it quite easy?
+我不喜欢那些构建系统，我认为他们带头违反了他们自己制定的“机制优于策略”和“KISS”原则。为什么要学习那些丑陋死板的规则？图灵完备的编程语言不更好吗？既然C编译器是必备的，那么把必要的功能封装进一个头文件里面，我总结最核心的就这几条：一、**递归遍历文件目录**；二、**比较文件时间**；三、**串行、并行执行命令**，不就能开心地用C语言写脚本了？客户也很高兴，因为他们完全不需要安装额外的构建系统，只需要键入`gcc make.c && ./a.out`或者`cl make.c && make.exe`就行了，多方便？
 
-|Constants|Description|
-|-|-|
-|const enum compiler_type compiler|Compiler type, can be one of `msvc gcc`.|
-|#define dllext|File extension of shared library, e.g `".dll" ".so"`|
-|#define exeext|File extension of executable, e.g `".exe"`|
-|#define libext|File extension of library, e.g `".lib" ".a"`|
-|#define objext|File extension of compiled object, e.g `".obj" ".o"`|
-|const enum os_type os|Operating system type, can be one of `windows posix`.|
-|#define pathsep|File system path seperator, , e.g `"\\" "/"`|
-
-|Functions|Description|
-|-|-|
-|void append(char **dest, ...)|Append multiple strings sequentially to end of `dest`, `dest` must be dynamically allocated.|
-|char * concat(...)|Concatenate multiple strings, return string should be freed when used up.|
-|#define countof(__arg_0)|Calculate number of elements in static array.|
-|bool endswith(const char *str, const char *suffix)|Determine whether `str` ends with `suffix`.|
-|bool equals(const char *str1, const char *str2)|Determine whether `str1 str2` are equal.|
-|char * join(char *sep, ...)|Join multiple strings by given seperator `sep`, return string should be freed when used up.|
-|void listdir(const char *dir, void (*callback)(const char *dir, const char *base, const char *ext))|Iterate all items in directory `dir`, whether `dir` ends with or without path seperator doesn't matter, for each item invoke `callback`, which takes 3 parameters: `dir` always ends with path seperator. If item is file, combination is complete file path, `ext` will be `""` if file has no extension. If is directory, `dir` will be subdirectory's full path, `base` and `ext` will be `NULL`.|
-|double max(...)|Take one or more double values, returns maximum one.|
-|double mtime(...)|Get one or more file modification utc time and returns latest one.|
-|void run(const char *cmd)|Run command line `cmd`. If return value is not 0, print error message and exit program.|
-|bool startswith(const char *str, const char *prefix)|Determine whether `str` starts with `prefix`.|
-|void async(const char *cmd)|Parallel run command line `cmd`. Maximum number of workers equals to num of cpu cores. If return value is not 0, print error message and exit program.|
-|void await()|Wait for all workers to finish.|
-
-Here's an example:
+具体API定义，见英文文档，下面是一个范例：
 
 ```c
 #include "../banana-make/make.h"
