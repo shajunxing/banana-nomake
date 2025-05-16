@@ -1,4 +1,4 @@
-# How to get rid of annoying build systems such as gmake, nmake, cmake
+# Banana Make, using only one make.h file, replaces those annoying build systems like gmake, nmake, cmake...
 
 This article is openly licensed via [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/).
 
