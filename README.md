@@ -19,6 +19,8 @@ I don't like those build systems, I think they break their own belief "mechanism
 |Functions|Description|
 |-|-|
 |void append(char **dest, ...)|Append multiple strings sequentially to end of `dest`, `dest` must be dynamically allocated.|
+|void async(const char *cmd)|Parallel run command line `cmd`. Maximum number of workers equals to num of cpu cores. If return value is not 0, print error message and exit program.|
+|void await()|Wait for all workers to finish.|
 |char * concat(...)|Concatenate multiple strings, return string should be freed when used up.|
 |#define countof(__arg_0)|Calculate number of elements in static array.|
 |bool endswith(const char *str, const char *suffix)|Determine whether `str` ends with `suffix`.|
@@ -29,8 +31,6 @@ I don't like those build systems, I think they break their own belief "mechanism
 |double mtime(...)|Get one or more file modification utc time and returns latest one.|
 |void run(const char *cmd)|Run command line `cmd`. If return value is not 0, print error message and exit program.|
 |bool startswith(const char *str, const char *prefix)|Determine whether `str` starts with `prefix`.|
-|void async(const char *cmd)|Parallel run command line `cmd`. Maximum number of workers equals to num of cpu cores. If return value is not 0, print error message and exit program.|
-|void await()|Wait for all workers to finish.|
 
 Here's an example:
 
