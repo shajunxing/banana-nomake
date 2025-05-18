@@ -22,7 +22,11 @@ You should have received a copy of the GNU General Public License along with thi
     #include <direct.h> // including functions getcwd, chdir, mkdir, rmdir
     #include <windows.h>
 #else
+    #include <dirent.h>
+    #include <errno.h>
+    #include <signal.h>
     #include <sys/stat.h>
+    #include <sys/wait.h>
     #include <unistd.h>
 #endif
 
@@ -163,21 +167,11 @@ bool endswith(const char *str, const char *suffix) {
     return strncmp(str + len - suffixlen, suffix, suffixlen) == 0;
 }
 
-#define run(__arg_0)                                                      \
-    do {                                                                  \
-        int ret;                                                          \
-        ret = system(__arg_0);                                            \
-        if (ret != 0) {                                                   \
-            printf("%s:%d: exit code is %d.\n", __FILE__, __LINE__, ret); \
-            exit(EXIT_FAILURE);                                           \
-        }                                                                 \
-    } while (0)
-
 double __mtime(const char *filename) {
+    double ret = -DBL_MAX;
 #ifdef _WIN32
     HANDLE fh;
     FILETIME mt;
-    double ret = 0;
     fh = CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
     if (fh != INVALID_HANDLE_VALUE) {
         if (GetFileTime(fh, NULL, NULL, &mt) != 0) {
@@ -185,14 +179,13 @@ double __mtime(const char *filename) {
         }
         CloseHandle(fh);
     }
-    return ret;
 #else
     struct stat sb;
-    if (lstat(filename, &sb) == -1) {
-        return 0;
+    if (lstat(filename, &sb) == 0) {
+        ret = (double)sb.st_mtime;
     }
-    return sb.st_mtime;
 #endif
+    return ret;
 }
 double _mtime(int nargs, ...) {
     double ret = -DBL_MAX;
@@ -211,47 +204,58 @@ double _mtime(int nargs, ...) {
 #define mtime(...) _mtime(numargs(__VA_ARGS__), ##__VA_ARGS__)
 
 void listdir(const char *dir, void (*callback)(const char *dir, const char *base, const char *ext)) {
+    char *standardized_dir = endswith(dir, pathsep) ? concat(dir) : concat(dir, pathsep);
+    bool isdir;
+    char *filename;
 #ifdef _WIN32
+    char *pattern = concat(standardized_dir, "*");
     HANDLE sh;
-    WIN32_FIND_DATA fd;
-    char *standardized_dir;
-    char *pattern;
-    if (endswith(dir, pathsep)) {
-        standardized_dir = concat(dir);
-    } else {
-        standardized_dir = concat(dir, pathsep);
-    }
-    pattern = concat(standardized_dir, "*");
-    sh = FindFirstFile(pattern, &fd);
+    WIN32_FIND_DATAA fd;
+    sh = FindFirstFileA(pattern, &fd);
     if (sh != INVALID_HANDLE_VALUE) {
         do {
-            if (equals(fd.cFileName, ".") || equals(fd.cFileName, "..")) {
-                continue;
-            }
-            if ((fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
-                char *subdir = concat(standardized_dir, fd.cFileName, pathsep);
-                callback(subdir, NULL, NULL);
-                free(subdir);
+            isdir = (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+            filename = fd.cFileName;
+#else
+    // https://www.geeksforgeeks.org/c-program-list-files-sub-directories-directory/
+    struct dirent *de;
+    DIR *dr = opendir(".");
+    if (dr != NULL) {
+        while ((de = readdir(dr)) != NULL) {
+            isdir = de->d_type == DT_DIR;
+            filename = de->d_name;
+#endif
+            // BEGIN BLOCK
+            if (isdir) {
+                if (!equals(filename, ".") && !equals(filename, "..")) {
+                    char *subdir = concat(standardized_dir, filename, pathsep);
+                    callback(subdir, NULL, NULL);
+                    free(subdir);
+                }
             } else {
-                char *ext = strrchr(fd.cFileName, '.');
+                char *ext = strrchr(filename, '.');
                 if (ext) {
-                    size_t baselen = ext - fd.cFileName;
+                    size_t baselen = ext - filename;
                     char *base = (char *)calloc(baselen + 1, 1);
-                    strncpy(base, fd.cFileName, baselen);
+                    strncpy(base, filename, baselen);
                     callback(standardized_dir, base, ext);
                     free(base);
                 } else {
-                    callback(standardized_dir, fd.cFileName, "");
+                    callback(standardized_dir, filename, "");
                 }
             }
-        } while (FindNextFile(sh, &fd) != 0);
+            // END BLOCK
+#ifdef _WIN32
+        } while (FindNextFileA(sh, &fd) != 0);
         FindClose(sh);
     }
     free(pattern);
-    free(standardized_dir);
 #else
-        // TODO
+        }
+        closedir(dr);
+    }
 #endif
+    free(standardized_dir);
 }
 
 // stdlib.c already has _sleep()
@@ -263,7 +267,14 @@ void __sleep(double secs) {
 #endif
 }
 
-const char *_win_error_string() {
+long _system_error_number() {
+#ifdef _WIN32
+    return GetLastError();
+#else
+    return errno;
+#endif
+}
+const char *_system_error_string() {
 #ifdef _WIN32
     // https://learn.microsoft.com/en-us/windows/win32/debug/retrieving-the-last-error-code
     // https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-formatmessage
@@ -276,11 +287,27 @@ const char *_win_error_string() {
     return strerror(errno);
 #endif
 }
+#define _log_x(__arg_0, __arg_1, __arg_2, ...) printf("%s:%d: " __arg_0 "\n", __arg_1, __arg_2, ##__VA_ARGS__)
+#define _log(__arg_0, ...) _log_x(__arg_0, __FILE__, __LINE__, ##__VA_ARGS__)
+#define _error_exit(__arg_0, ...)     \
+    do {                              \
+        _log(__arg_0, ##__VA_ARGS__); \
+        exit(EXIT_FAILURE);           \
+    } while (0)
+#define _system_error_exit() _error_exit("error %ld: %s", _system_error_number(), _system_error_string())
+
+#define run(__arg_0)                                           \
+    do {                                                       \
+        int ret = system(__arg_0);                             \
+        if (ret != 0) {                                        \
+            _error_exit("%s: exit code is %d.", __arg_0, ret); \
+        }                                                      \
+    } while (0)
 
 unsigned _parallel_num_workers = 0;
 struct _parallel_worker_info {
     const char *file;
-    size_t line;
+    int line;
 #ifdef _WIN32
     HANDLE proc;
 #else
@@ -291,77 +318,84 @@ struct _parallel_worker_info {
 struct _parallel_worker_info *_parallel_workers = NULL;
 void _parallel_init() {
     if (_parallel_num_workers == 0) {
+#ifdef _WIN32
         SYSTEM_INFO info;
         GetSystemInfo(&info);
         _parallel_num_workers = (unsigned)info.dwNumberOfProcessors;
+#else
+        // https://stackoverflow.com/questions/2693948/how-do-i-retrieve-the-number-of-processors-on-c-linux
+        _parallel_num_workers = (unsigned)sysconf(_SC_NPROCESSORS_ONLN);
+#endif
         if (_parallel_num_workers == 0) {
-            printf("%s:%d: Failed to get _parallel_num_workers.\n", __FILE__, __LINE__);
-            exit(EXIT_FAILURE);
+            _error_exit("Failed to get _parallel_num_workers.");
         }
         _parallel_workers = (struct _parallel_worker_info *)calloc(_parallel_num_workers, sizeof(struct _parallel_worker_info));
     }
+}
+void _parallel_zero_out(size_t slot) {
+    _parallel_workers[slot].file = NULL;
+    _parallel_workers[slot].line = 0;
+    _parallel_workers[slot].proc = 0;
+    free(_parallel_workers[slot].cmd);
+    _parallel_workers[slot].cmd = NULL;
 }
 void _parallel_kill_all() {
     size_t slot;
     for (slot = 0; slot < _parallel_num_workers; slot++) {
         if (_parallel_workers[slot].proc != 0) {
-            printf("Kill: %ld %s\n", slot, _parallel_workers[slot].cmd);
+            printf("Kill: %ld: %s\n", slot, _parallel_workers[slot].cmd);
+#ifdef _WIN32
             if (TerminateProcess(_parallel_workers[slot].proc, EXIT_FAILURE)) {
-                _parallel_workers[slot].file = NULL;
-                _parallel_workers[slot].line = 0;
-                _parallel_workers[slot].proc = 0;
-                free(_parallel_workers[slot].cmd);
-                _parallel_workers[slot].cmd = NULL;
+#else
+            if (kill(_parallel_workers[slot].proc, SIGKILL) == 0) {
+#endif
+                _parallel_zero_out(slot);
             } else {
-                printf("%s:%d: TerminateProcess() failed: %s\n", _win_error_string());
-                exit(EXIT_FAILURE);
+                _system_error_exit();
             }
         }
     }
 }
-void _parallel_cleanup() {
-    _parallel_num_workers = 0;
-    free(_parallel_workers);
-    _parallel_workers = NULL;
-}
-// TODO: use posix_spawn, waitpid, numCPU = sysconf( _SC_NPROCESSORS_ONLN ) https://stackoverflow.com/questions/2693948/how-do-i-retrieve-the-number-of-processors-on-c-linux
+// void _parallel_cleanup() {
+//     _parallel_num_workers = 0;
+//     free(_parallel_workers);
+//     _parallel_workers = NULL;
+// }
 bool _parallel_check(size_t slot) {
-    DWORD exit_code;
-    // printf("_parallel_check(%llu)\n", slot);
+    long exit_code;
     if (_parallel_workers[slot].proc == 0) { // slot is available
         return true;
-    } else if (WaitForSingleObject(_parallel_workers[slot].proc, 0) == WAIT_OBJECT_0) { // process finished
-        if (GetExitCodeProcess(_parallel_workers[slot].proc, &exit_code)) {
-            if (exit_code != 0) {
-                printf("%s:%d: exit code is %d.\n", _parallel_workers[slot].file, _parallel_workers[slot].line, exit_code);
-                _parallel_workers[slot].file = NULL;
-                _parallel_workers[slot].line = 0;
-                _parallel_workers[slot].proc = 0;
-                free(_parallel_workers[slot].cmd);
-                _parallel_workers[slot].cmd = NULL;
-                _parallel_kill_all();
-                exit(EXIT_FAILURE);
-            } else {
-                _parallel_workers[slot].file = NULL;
-                _parallel_workers[slot].line = 0;
-                _parallel_workers[slot].proc = 0;
-                free(_parallel_workers[slot].cmd);
-                _parallel_workers[slot].cmd = NULL;
-                return true;
-            }
-        } else {
-            printf("%s:%d: GetExitCodeProcess() failed: %s\n", _win_error_string());
-            _parallel_kill_all();
-            exit(EXIT_FAILURE);
-        }
-    } else {
+    }
+#ifdef _WIN32
+    if (WaitForSingleObject(_parallel_workers[slot].proc, 0) != WAIT_OBJECT_0) { // process is running
         return false;
+    }
+    if (GetExitCodeProcess(_parallel_workers[slot].proc, &exit_code) == 0) {
+        _log("%s", _system_error_string());
+        _parallel_kill_all();
+        exit(EXIT_FAILURE);
+    }
+#else
+    {
+        int status;
+        if (waitpid(_parallel_workers[slot].proc, &status, WNOHANG) == 0) { // process is running
+            return false;
+        }
+        exit_code = WEXITSTATUS(status);
+    }
+#endif
+    if (exit_code != 0) {
+        _log_x("%s: exit code is %ld.", _parallel_workers[slot].file, _parallel_workers[slot].line, _parallel_workers[slot].cmd, exit_code);
+        _parallel_zero_out(slot); // must zero out to prevent next kill error
+        _parallel_kill_all();
+        exit(EXIT_FAILURE);
+    } else {
+        _parallel_zero_out(slot);
+        return true;
     }
 }
 void _parallel_run(const char *file, size_t line, const char *cmd) {
     size_t slot;
-    STARTUPINFOA si = {sizeof(STARTUPINFOA)};
-    PROCESS_INFORMATION pi;
     _parallel_init();
     for (;;) { // no available slot
         // wait one of the _parallel_workers to finish
@@ -375,18 +409,63 @@ void _parallel_run(const char *file, size_t line, const char *cmd) {
         if (any_done) {
             break;
         } else {
-            Sleep(200);
+            __sleep(0.2);
         }
     }
-    if (CreateProcessA(NULL, (LPSTR)cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-        _parallel_workers[slot].file = file;
-        _parallel_workers[slot].line = line;
-        _parallel_workers[slot].proc = pi.hProcess;
-        _parallel_workers[slot].cmd = (char *)calloc(strlen(cmd) + 1, 1);
-        strcpy(_parallel_workers[slot].cmd, cmd);
-    } else {
-        printf("%s:%d: CreateProcessA() failed: %s\n", _win_error_string());
-        exit(EXIT_FAILURE);
+    {
+#ifdef _WIN32
+        STARTUPINFOA si = {sizeof(STARTUPINFOA)};
+        PROCESS_INFORMATION pi;
+        if (CreateProcessA(NULL, (LPSTR)cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+            _parallel_workers[slot].file = file;
+            _parallel_workers[slot].line = line;
+            _parallel_workers[slot].proc = pi.hProcess;
+            _parallel_workers[slot].cmd = (char *)calloc(strlen(cmd) + 1, 1);
+            strcpy(_parallel_workers[slot].cmd, cmd);
+        } else {
+            _system_error_exit();
+        }
+#else
+        pid_t pid = fork(); // posix_spawn's parameters are hard to use
+        switch (pid) {
+        case -1:
+            _system_error_exit();
+            break;
+        case 0: {
+                // from chatgpt
+    #define MAX_ARGS 64
+            char *argv[MAX_ARGS];
+            char *cmd_copy = strdup(cmd);
+            char *token;
+            int i = 0;
+            if (!cmd_copy) {
+                _system_error_exit();
+            }
+            token = strtok(cmd_copy, " ");
+            while (token != NULL && i < MAX_ARGS - 1) {
+                argv[i++] = token;
+                token = strtok(NULL, " ");
+            }
+            argv[i] = NULL;
+            if (i == 0) {
+                free(cmd_copy);
+                _error_exit("Empty command\n");
+            }
+            execvp(argv[0], argv);
+            // Only reached if execvp fails
+            perror("execvp failed");
+            free(cmd_copy);
+            _system_error_exit();
+        } break;
+        default:
+            _parallel_workers[slot].file = file;
+            _parallel_workers[slot].line = line;
+            _parallel_workers[slot].proc = pid;
+            _parallel_workers[slot].cmd = (char *)calloc(strlen(cmd) + 1, 1);
+            strcpy(_parallel_workers[slot].cmd, cmd);
+            break;
+        }
+#endif
     }
 }
 #define async(__arg_0) _parallel_run(__FILE__, __LINE__, __arg_0)
@@ -404,7 +483,7 @@ void await() {
         if (all_done) {
             break;
         } else {
-            Sleep(200);
+            __sleep(0.2);
         }
     }
 }

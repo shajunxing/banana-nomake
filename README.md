@@ -2,9 +2,13 @@
 
 This article is openly licensed via [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/).
 
+[English Version](README.md) | [Chinese Version](README_zhCN.md)
+
 Project Address: <https://github.com/shajunxing/banana-make>
 
 I don't like those build systems, I think they break their own belief "mechanism better than policy" and "keep it simple stupid". Why should one learn those ugly and rigid rules? Wouldn't a Turing-Complete programming language be better? Since C compiler is essential, encapsulate necessary functions into a header file, most important points I summarized as follows: 1. **Recursive traversal of file and directories**; 2. **Comparison of file timestamps**; 3. **Serial and parallel execution of commands**, then I can happily write scripts in C, right? Customers would be happy too, as they won't need to install any additional build systems, they can simply type `gcc make.c && ./a.out` or `cl make.c && make.exe`, isn't it quite easy?
+
+Brief guide: use `listdir` to batch process multiple files in a directory, use `max mtime` to compare file modification times, use `append concat endswith equals join startswith` to handle strings, and use `async await run` to execute commands. Below are the detailed API definitions:
 
 |Constants|Description|
 |-|-|
@@ -28,7 +32,7 @@ I don't like those build systems, I think they break their own belief "mechanism
 |char * join(char *sep, ...)|Join multiple strings by given seperator `sep`, return string should be freed when used up.|
 |void listdir(const char *dir, void (*callback)(const char *dir, const char *base, const char *ext))|Iterate all items in directory `dir`, whether `dir` ends with or without path seperator doesn't matter, for each item invoke `callback`, which takes 3 parameters: `dir` always ends with path seperator. If item is file, combination is complete file path, `ext` will be `""` if file has no extension. If is directory, `dir` will be subdirectory's full path, `base` and `ext` will be `NULL`.|
 |double max(...)|Take one or more double values, returns maximum one.|
-|double mtime(...)|Get one or more file modification utc time and returns latest one.|
+|double mtime(...)|Get one or more file modification utc time and returns latest one, value of non-existent file is -DBL_MAX|
 |void run(const char *cmd)|Run command line `cmd`. If return value is not 0, print error message and exit program.|
 |bool startswith(const char *str, const char *prefix)|Determine whether `str` starts with `prefix`.|
 
