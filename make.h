@@ -219,7 +219,7 @@ void listdir(const char *dir, void (*callback)(const char *dir, const char *base
 #else
     // https://www.geeksforgeeks.org/c-program-list-files-sub-directories-directory/
     struct dirent *de;
-    DIR *dr = opendir(".");
+    DIR *dr = opendir(standardized_dir);
     if (dr != NULL) {
         while ((de = readdir(dr)) != NULL) {
             isdir = de->d_type == DT_DIR;
@@ -260,7 +260,7 @@ void listdir(const char *dir, void (*callback)(const char *dir, const char *base
 
 // stdlib.c already has _sleep()
 void __sleep(double secs) {
-#ifdef _MSC_VER
+#ifdef _WIN32
     Sleep((DWORD)(secs * 1000));
 #else
     usleep((int)(secs * 1000000));
@@ -343,7 +343,7 @@ void _parallel_kill_all() {
     size_t slot;
     for (slot = 0; slot < _parallel_num_workers; slot++) {
         if (_parallel_workers[slot].proc != 0) {
-            printf("Kill: %ld: %s\n", slot, _parallel_workers[slot].cmd);
+            // printf("kill: %s\n", _parallel_workers[slot].cmd);
 #ifdef _WIN32
             if (TerminateProcess(_parallel_workers[slot].proc, EXIT_FAILURE)) {
 #else
@@ -366,24 +366,26 @@ bool _parallel_check(size_t slot) {
     if (_parallel_workers[slot].proc == 0) { // slot is available
         return true;
     }
-#ifdef _WIN32
-    if (WaitForSingleObject(_parallel_workers[slot].proc, 0) != WAIT_OBJECT_0) { // process is running
-        return false;
-    }
-    if (GetExitCodeProcess(_parallel_workers[slot].proc, &exit_code) == 0) {
-        _log("%s", _system_error_string());
-        _parallel_kill_all();
-        exit(EXIT_FAILURE);
-    }
-#else
     {
+#ifdef _WIN32
+        DWORD status;
+        if (WaitForSingleObject(_parallel_workers[slot].proc, 0) != WAIT_OBJECT_0) { // process is running
+            return false;
+        }
+        if (GetExitCodeProcess(_parallel_workers[slot].proc, &status) == 0) {
+            _log("%s", _system_error_string());
+            _parallel_kill_all();
+            exit(EXIT_FAILURE);
+        }
+        exit_code = (long)status;
+#else
         int status;
         if (waitpid(_parallel_workers[slot].proc, &status, WNOHANG) == 0) { // process is running
             return false;
         }
         exit_code = WEXITSTATUS(status);
-    }
 #endif
+    }
     if (exit_code != 0) {
         _log_x("%s: exit code is %ld.", _parallel_workers[slot].file, _parallel_workers[slot].line, _parallel_workers[slot].cmd, exit_code);
         _parallel_zero_out(slot); // must zero out to prevent next kill error
@@ -394,7 +396,7 @@ bool _parallel_check(size_t slot) {
         return true;
     }
 }
-void _parallel_run(const char *file, size_t line, const char *cmd) {
+void _parallel_run(const char *file, int line, const char *cmd) {
     size_t slot;
     _parallel_init();
     for (;;) { // no available slot

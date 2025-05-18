@@ -26,7 +26,6 @@ Brief guide: use `listdir` to batch process multiple files in a directory, use `
 |void async(const char *cmd)|Parallel run command line `cmd`. Maximum number of workers equals to num of cpu cores. If return value is not 0, print error message and exit program.|
 |void await()|Wait for all workers to finish.|
 |char * concat(...)|Concatenate multiple strings, return string should be freed when used up.|
-|#define countof(__arg_0)|Calculate number of elements in static array.|
 |bool endswith(const char *str, const char *suffix)|Determine whether `str` ends with `suffix`.|
 |bool equals(const char *str1, const char *str2)|Determine whether `str1 str2` are equal.|
 |char * join(char *sep, ...)|Join multiple strings by given seperator `sep`, return string should be freed when used up.|
