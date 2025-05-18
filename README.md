@@ -30,9 +30,9 @@ Brief guide: use `listdir` to batch process multiple files in a directory, use `
 |bool endswith(const char *str, const char *suffix)|Determine whether `str` ends with `suffix`.|
 |bool equals(const char *str1, const char *str2)|Determine whether `str1 str2` are equal.|
 |char * join(char *sep, ...)|Join multiple strings by given seperator `sep`, return string should be freed when used up.|
-|void listdir(const char *dir, void (*callback)(const char *dir, const char *base, const char *ext))|Iterate all items in directory `dir`, whether `dir` ends with or without path seperator doesn't matter, for each item invoke `callback`, which takes 3 parameters: `dir` always ends with path seperator. If item is file, combination is complete file path, `ext` will be `""` if file has no extension. If is directory, `dir` will be subdirectory's full path, `base` and `ext` will be `NULL`.|
+|void listdir(const char *dir, void (*callback)(const char *dir, const char *base, const char *ext))|Iterate all items in directory `dir`, whether `dir` ends with or without path seperator doesn't matter, for each item invoke `callback`, set 3 parameters: `dir` always ends with path seperator. If item is file, combination is complete file path, `ext` will be `""` if file has no extension. If is directory, `dir` will be subdirectory's full path, `base` and `ext` will be `NULL`.|
 |double max(...)|Take one or more double values, returns maximum one.|
-|double mtime(...)|Get one or more file modification utc time and returns latest one, value of non-existent file is -DBL_MAX|
+|double mtime(...)|Get one or more file modification utc time and returns latest one, value for non-existent file is -DBL_MAX|
 |void run(const char *cmd)|Run command line `cmd`. If return value is not 0, print error message and exit program.|
 |bool startswith(const char *str, const char *prefix)|Determine whether `str` starts with `prefix`.|
 
