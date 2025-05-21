@@ -8,17 +8,17 @@ Project Address: <https://github.com/shajunxing/banana-make>
 
 I don't like those build systems, I think they break their own belief "mechanism better than policy" and "keep it simple stupid". Why should one learn those ugly and rigid rules? Wouldn't a Turing-Complete programming language be better? Since C compiler is essential, encapsulate necessary functions into a header file, most important points I summarized as follows: 1. **Recursive traversal of file and directories**; 2. **Comparison of file timestamps**; 3. **Serial and parallel execution of commands**, then I can happily write scripts in C, right? Customers would be happy too, as they won't need to install any additional build systems, they can simply type `gcc make.c && ./a.out` or `cl make.c && make.exe`, isn't it quite easy?
 
-Brief guide: use `listdir` to batch process multiple files in a directory, use `max mtime` to compare file modification times, use `append concat endswith equals join startswith` to handle strings, and use `async await run` to execute commands. Below are the detailed API definitions:
+Brief guide: use `listdir` to batch process multiple files in a directory, use `max mtime` to compare file modification times, use `append concat endswith equals join startswith` to handle strings, and use `async await run` to execute commands. Below are detailed API definitions:
 
 |Constants|Description|
 |-|-|
-|const enum compiler_type compiler|Compiler type, can be one of `msvc gcc`.|
-|#define dllext|File extension of shared library, e.g `".dll" ".so"`|
+|const enum compiler_type compiler|Compiler type, can be one of `msvc` `gcc`.|
+|#define dllext|File extension of shared library, e.g `".dll"` `".so"`|
 |#define exeext|File extension of executable, e.g `".exe"`|
-|#define libext|File extension of library, e.g `".lib" ".a"`|
-|#define objext|File extension of compiled object, e.g `".obj" ".o"`|
-|const enum os_type os|Operating system type, can be one of `windows posix`.|
-|#define pathsep|File system path seperator, , e.g `"\\" "/"`|
+|#define libext|File extension of library, e.g `".lib"` `".a"`|
+|#define objext|File extension of compiled object, e.g `".obj"` `".o"`|
+|const enum os_type os|Operating system type, can be one of `windows` `posix`.|
+|#define pathsep|File system path seperator, , e.g `"\\"` `"/"`|
 
 |Functions|Description|
 |-|-|
@@ -26,14 +26,14 @@ Brief guide: use `listdir` to batch process multiple files in a directory, use `
 |void async(const char *cmd)|Parallel run command line `cmd`. Maximum number of workers equals to num of cpu cores. If return value is not 0, print error message and exit program.|
 |void await()|Wait for all workers to finish.|
 |char * concat(...)|Concatenate multiple strings, return string should be freed when used up.|
-|bool endswith(const char *str, const char *suffix)|Determine whether `str` ends with `suffix`.|
-|bool equals(const char *str1, const char *str2)|Determine whether `str1 str2` are equal.|
+|bool endswith(const char *str, ...)|Determine whether `str` ends with any of rest parameters.|
+|bool equals(const char *str, ...)|Determine whether `str` are equal to any of rest parameters.|
 |char * join(char *sep, ...)|Join multiple strings by given seperator `sep`, return string should be freed when used up.|
 |void listdir(const char *dir, void (*callback)(const char *dir, const char *base, const char *ext))|Iterate all items in directory `dir`, whether `dir` ends with or without path seperator doesn't matter, for each item invoke `callback`, set 3 parameters: `dir` always ends with path seperator. If item is file, combination is complete file path, `ext` will be `""` if file has no extension. If is directory, `dir` will be subdirectory's full path, `base` and `ext` will be `NULL`.|
 |double max(...)|Take one or more double values, returns maximum one.|
 |double mtime(...)|Get one or more file modification utc time and returns latest one, value for non-existent file is -DBL_MAX|
 |void run(const char *cmd)|Run command line `cmd`. If return value is not 0, print error message and exit program.|
-|bool startswith(const char *str, const char *prefix)|Determine whether `str` starts with `prefix`.|
+|bool startswith(const char *str, ...)|Determine whether `str` starts with any of rest parameters.|
 
 Here's an example:
 

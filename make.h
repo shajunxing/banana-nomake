@@ -11,7 +11,11 @@ You should have received a copy of the GNU General Public License along with thi
 #ifndef MAKE_H
 #define MAKE_H
 
+#ifdef _MSC_VER
+    #define _CRT_SECURE_NO_WARNINGS
+#endif
 #include <assert.h>
+#include <errno.h>
 #include <float.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -23,7 +27,6 @@ You should have received a copy of the GNU General Public License along with thi
     #include <windows.h>
 #else
     #include <dirent.h>
-    #include <errno.h>
     #include <signal.h>
     #include <sys/stat.h>
     #include <sys/wait.h>
@@ -78,11 +81,40 @@ const enum os_type os = posix;
     #define numargs(...) _numargs_call(_numargs_select, (_, ##__VA_ARGS__, 63, 62, 61, 60, 59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0))
 #endif
 
+long _system_error_number() {
+#ifdef _WIN32
+    return GetLastError();
+#else
+    return errno;
+#endif
+}
+const char *_system_error_string() {
+#ifdef _WIN32
+    // https://learn.microsoft.com/en-us/windows/win32/debug/retrieving-the-last-error-code
+    // https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-formatmessage
+    static char es[256];
+    memset(es, 0, sizeof(es));
+    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                   NULL, GetLastError(), 1033, es, sizeof(es), NULL);
+    return es;
+#else
+    return strerror(errno);
+#endif
+}
+#define _log_x(__arg_0, __arg_1, __arg_2, ...) printf("%s:%d: " __arg_0 "\n", __arg_1, __arg_2, ##__VA_ARGS__)
+#define _log(__arg_0, ...) _log_x(__arg_0, __FILE__, __LINE__, ##__VA_ARGS__)
+#define _error_exit(__arg_0, ...)     \
+    do {                              \
+        _log(__arg_0, ##__VA_ARGS__); \
+        exit(EXIT_FAILURE);           \
+    } while (0)
+#define _system_error_exit() _error_exit("error %ld: %s", _system_error_number(), _system_error_string())
+
 // do not use float, because va_arg needs double, see https://stackoverflow.com/questions/11270588/variadic-function-va-arg-doesnt-work-with-float same below
 double _max(size_t nargs, ...) {
     double ret = -DBL_MAX;
-    va_list args;
     size_t i;
+    va_list args;
     va_start(args, nargs);
     for (i = 0; i < nargs; i++) {
         double v = va_arg(args, double);
@@ -104,9 +136,9 @@ double _max(size_t nargs, ...) {
 #endif
 
 char *_join(const char *sep, size_t nargs, ...) {
-    va_list args;
     size_t i, len;
     char *ret;
+    va_list args;
     va_start(args, nargs);
     for (len = 0, i = 0; i < nargs; i++) {
         len += strlen(va_arg(args, char *));
@@ -128,9 +160,8 @@ char *_join(const char *sep, size_t nargs, ...) {
 #define concat(...) join("", ##__VA_ARGS__)
 
 void _append(char **dest, size_t nargs, ...) {
+    size_t i, len = strlen(*dest);
     va_list args;
-    size_t i, len;
-    len = strlen(*dest);
     va_start(args, nargs);
     for (i = 0; i < nargs; i++) {
         len += strlen(va_arg(args, char *));
@@ -145,27 +176,87 @@ void _append(char **dest, size_t nargs, ...) {
 }
 #define append(__arg_0, ...) _append(__arg_0, numargs(__VA_ARGS__), ##__VA_ARGS__)
 
-bool equals(const char *str1, const char *str2) {
-    return strcmp(str1, str2) == 0;
-}
-
-bool startswith(const char *str, const char *prefix) {
-    size_t len = strlen(str);
-    size_t prefixlen = strlen(prefix);
-    if (prefixlen > len) {
-        return false;
+bool _equals(const char *str, size_t nargs, ...) {
+    bool ret = false;
+    size_t i;
+    va_list args;
+    va_start(args, nargs);
+    for (i = 0; i < nargs; i++) {
+        const char *cmp = va_arg(args, const char *);
+        if (strcmp(str, cmp) == 0) {
+            ret = true;
+            break;
+        }
     }
-    return strncmp(str, prefix, prefixlen) == 0;
+    va_end(args);
+    return ret;
 }
+#define equals(__arg_0, ...) _equals(__arg_0, numargs(__VA_ARGS__), ##__VA_ARGS__)
 
-bool endswith(const char *str, const char *suffix) {
+bool _startswith(const char *str, size_t nargs, ...) {
     size_t len = strlen(str);
-    size_t suffixlen = strlen(suffix);
-    if (suffixlen > len) {
-        return false;
+    bool ret = false;
+    size_t i;
+    va_list args;
+    va_start(args, nargs);
+    for (i = 0; i < nargs; i++) {
+        const char *prefix = va_arg(args, const char *);
+        size_t prefixlen = strlen(prefix);
+        if (prefixlen <= len && strncmp(str, prefix, prefixlen) == 0) {
+            ret = true;
+            break;
+        }
     }
-    return strncmp(str + len - suffixlen, suffix, suffixlen) == 0;
+    va_end(args);
+    return ret;
 }
+#define startswith(__arg_0, ...) _startswith(__arg_0, numargs(__VA_ARGS__), ##__VA_ARGS__)
+
+bool _endswith(const char *str, size_t nargs, ...) {
+    size_t len = strlen(str);
+    bool ret = false;
+    size_t i;
+    va_list args;
+    va_start(args, nargs);
+    for (i = 0; i < nargs; i++) {
+        const char *suffix = va_arg(args, const char *);
+        size_t suffixlen = strlen(suffix);
+        if (suffixlen <= len && strncmp(str + len - suffixlen, suffix, suffixlen) == 0) {
+            ret = true;
+            break;
+        }
+    }
+    va_end(args);
+    return ret;
+}
+#define endswith(__arg_0, ...) _endswith(__arg_0, numargs(__VA_ARGS__), ##__VA_ARGS__)
+
+// https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/vsnprintf-vsnprintf-vsnprintf-l-vsnwprintf-vsnwprintf-l?view=msvc-170
+// below vs2015, _vsnprintf() behavior is different with vsnprintf()
+// char *format(const char *fmt, ...) {
+//     char *buf = NULL;
+//     size_t buflen;
+//     int result;
+//     // https://en.cppreference.com/w/c/io/vfprintf
+//     va_list args, args_copy;
+//     va_start(args, fmt);
+//     va_copy(args_copy, args);
+//     result = vsnprintf(NULL, 0, fmt, args);
+//     _log("result= %d", result);
+//     va_end(args);
+//     if (result < 0) {
+//         _error_exit("%s", strerror(errno));
+//     }
+//     buflen = (size_t)result + 1;
+//     buf = (char *)calloc(buflen, 1);
+//     result = vsnprintf(buf, buflen, fmt, args_copy);
+//     _log("result= %d", result);
+//     if (result < 0) {
+//         _error_exit("%s", strerror(errno));
+//     }
+//     va_end(args_copy);
+//     return buf;
+// }
 
 double __mtime(const char *filename) {
     double ret = -DBL_MAX;
@@ -189,8 +280,8 @@ double __mtime(const char *filename) {
 }
 double _mtime(int nargs, ...) {
     double ret = -DBL_MAX;
-    va_list args;
     int i;
+    va_list args;
     va_start(args, nargs);
     for (i = 0; i < nargs; i++) {
         double t = __mtime(va_arg(args, char *));
@@ -266,35 +357,6 @@ void __sleep(double secs) {
     usleep((int)(secs * 1000000));
 #endif
 }
-
-long _system_error_number() {
-#ifdef _WIN32
-    return GetLastError();
-#else
-    return errno;
-#endif
-}
-const char *_system_error_string() {
-#ifdef _WIN32
-    // https://learn.microsoft.com/en-us/windows/win32/debug/retrieving-the-last-error-code
-    // https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-formatmessage
-    static char es[256];
-    memset(es, 0, sizeof(es));
-    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                   NULL, GetLastError(), 1033, es, sizeof(es), NULL);
-    return es;
-#else
-    return strerror(errno);
-#endif
-}
-#define _log_x(__arg_0, __arg_1, __arg_2, ...) printf("%s:%d: " __arg_0 "\n", __arg_1, __arg_2, ##__VA_ARGS__)
-#define _log(__arg_0, ...) _log_x(__arg_0, __FILE__, __LINE__, ##__VA_ARGS__)
-#define _error_exit(__arg_0, ...)     \
-    do {                              \
-        _log(__arg_0, ##__VA_ARGS__); \
-        exit(EXIT_FAILURE);           \
-    } while (0)
-#define _system_error_exit() _error_exit("error %ld: %s", _system_error_number(), _system_error_string())
 
 #define run(__arg_0)                                           \
     do {                                                       \
