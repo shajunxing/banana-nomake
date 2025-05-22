@@ -84,26 +84,6 @@ const enum os_type os = posix;
     #define numargs(...) _numargs_call(_numargs_select, (_, ##__VA_ARGS__, 63, 62, 61, 60, 59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0))
 #endif
 
-long _system_error_number() {
-#ifdef _WIN32
-    return GetLastError();
-#else
-    return errno;
-#endif
-}
-const char *_system_error_string() {
-#ifdef _WIN32
-    // https://learn.microsoft.com/en-us/windows/win32/debug/retrieving-the-last-error-code
-    // https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-formatmessage
-    static char es[256];
-    memset(es, 0, sizeof(es));
-    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                   NULL, GetLastError(), 1033, es, sizeof(es), NULL);
-    return es;
-#else
-    return strerror(errno);
-#endif
-}
 #define _log_x(__arg_0, __arg_1, __arg_2, ...) printf("%s:%d: " __arg_0 "\n", __arg_1, __arg_2, ##__VA_ARGS__)
 #define _log(__arg_0, ...) _log_x(__arg_0, __FILE__, __LINE__, ##__VA_ARGS__)
 #define _error_exit(__arg_0, ...)     \
@@ -111,7 +91,19 @@ const char *_system_error_string() {
         _log(__arg_0, ##__VA_ARGS__); \
         exit(EXIT_FAILURE);           \
     } while (0)
-#define _system_error_exit() _error_exit("error %ld: %s", _system_error_number(), _system_error_string())
+#ifdef _WIN32
+const char *_windows_error_string() {
+    // https://learn.microsoft.com/en-us/windows/win32/debug/retrieving-the-last-error-code
+    // https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-formatmessage
+    static char es[256];
+    memset(es, 0, sizeof(es));
+    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                   NULL, GetLastError(), 1033, es, sizeof(es), NULL);
+    return es;
+}
+    #define _windows_error_exit() _error_exit("error %ld: %s", GetLastError(), _windows_error_string())
+#endif
+#define _posix_error_exit() _error_exit("error %d: %s", errno, strerror(errno)) // also exists in windows
 
 // do not use float, because va_arg needs double, see https://stackoverflow.com/questions/11270588/variadic-function-va-arg-doesnt-work-with-float same below
 double _max(size_t nargs, ...) {
@@ -413,13 +405,17 @@ void _parallel_kill_all() {
             // printf("kill: %s\n", _parallel_workers[slot].cmd);
 #ifdef _WIN32
             if (TerminateProcess(_parallel_workers[slot].proc, EXIT_FAILURE)) {
-#else
-            if (kill(_parallel_workers[slot].proc, SIGKILL) == 0) {
-#endif
                 _parallel_zero_out(slot);
             } else {
-                _system_error_exit();
+                _windows_error_exit();
             }
+#else
+            if (kill(_parallel_workers[slot].proc, SIGKILL) == 0) {
+                _parallel_zero_out(slot);
+            } else {
+                _posix_error_exit();
+            }
+#endif
         }
     }
 }
@@ -440,7 +436,7 @@ bool _parallel_check(size_t slot) {
             return false;
         }
         if (GetExitCodeProcess(_parallel_workers[slot].proc, &status) == 0) {
-            _log("%s", _system_error_string());
+            _log("%s", _windows_error_string());
             _parallel_kill_all();
             exit(EXIT_FAILURE);
         }
@@ -492,13 +488,13 @@ void _parallel_run(const char *file, int line, const char *cmd) {
             _parallel_workers[slot].cmd = (char *)calloc(strlen(cmd) + 1, 1);
             strcpy(_parallel_workers[slot].cmd, cmd);
         } else {
-            _system_error_exit();
+            _windows_error_exit();
         }
 #else
         pid_t pid = fork(); // posix_spawn's parameters are hard to use
         switch (pid) {
         case -1:
-            _system_error_exit();
+            _posix_error_exit();
             break;
         case 0: {
                 // from chatgpt
@@ -508,7 +504,7 @@ void _parallel_run(const char *file, int line, const char *cmd) {
             char *token;
             int i = 0;
             if (!cmd_copy) {
-                _system_error_exit();
+                _posix_error_exit();
             }
             token = strtok(cmd_copy, " ");
             while (token != NULL && i < MAX_ARGS - 1) {
@@ -524,7 +520,7 @@ void _parallel_run(const char *file, int line, const char *cmd) {
             // Only reached if execvp fails
             perror("execvp failed");
             free(cmd_copy);
-            _system_error_exit();
+            _posix_error_exit();
         } break;
         default:
             _parallel_workers[slot].file = file;
