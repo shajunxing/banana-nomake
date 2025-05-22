@@ -76,6 +76,9 @@ const enum os_type os = posix;
     // https://stackoverflow.com/questions/2124339/c-preprocessor-va-args-number-of-arguments
     // in msvc, works fine even with old version
     // in gcc, only works with default or -std=gnu2x, -std=c?? will treat zero parameter as 1, maybe ## is only recognized by gnu extension
+    #if defined(__GNUC__) && defined(__STRICT_ANSI__)
+        #error numargs() only works with gnu extension enabled
+    #endif
     #define _numargs_call(__arg_0, __arg_1) __arg_0 __arg_1
     #define _numargs_select(_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, _31, _32, _33, _34, _35, _36, _37, _38, _39, _40, _41, _42, _43, _44, _45, _46, _47, _48, _49, _50, _51, _52, _53, _54, _55, _56, _57, _58, _59, _60, _61, _62, _63, __arg_0, ...) __arg_0
     #define numargs(...) _numargs_call(_numargs_select, (_, ##__VA_ARGS__, 63, 62, 61, 60, 59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0))
@@ -231,32 +234,34 @@ bool _endswith(const char *str, size_t nargs, ...) {
 }
 #define endswith(__arg_0, ...) _endswith(__arg_0, numargs(__VA_ARGS__), ##__VA_ARGS__)
 
-// https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/vsnprintf-vsnprintf-vsnprintf-l-vsnwprintf-vsnwprintf-l?view=msvc-170
-// below vs2015, _vsnprintf() behavior is different with vsnprintf()
-// char *format(const char *fmt, ...) {
-//     char *buf = NULL;
-//     size_t buflen;
-//     int result;
-//     // https://en.cppreference.com/w/c/io/vfprintf
-//     va_list args, args_copy;
-//     va_start(args, fmt);
-//     va_copy(args_copy, args);
-//     result = vsnprintf(NULL, 0, fmt, args);
-//     _log("result= %d", result);
-//     va_end(args);
-//     if (result < 0) {
-//         _error_exit("%s", strerror(errno));
-//     }
-//     buflen = (size_t)result + 1;
-//     buf = (char *)calloc(buflen, 1);
-//     result = vsnprintf(buf, buflen, fmt, args_copy);
-//     _log("result= %d", result);
-//     if (result < 0) {
-//         _error_exit("%s", strerror(errno));
-//     }
-//     va_end(args_copy);
-//     return buf;
-// }
+#if defined(_MSC_VER) && _MSC_VER < 1900
+    // https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/vsnprintf-vsnprintf-vsnprintf-l-vsnwprintf-vsnwprintf-l?view=msvc-170
+    #error below vs2015, _vsnprintf() behavior is different with vsnprintf()
+#endif
+char *format(const char *fmt, ...) {
+    char *buf = NULL;
+    size_t buflen;
+    int result;
+    // https://en.cppreference.com/w/c/io/vfprintf
+    va_list args, args_copy;
+    va_start(args, fmt);
+    va_copy(args_copy, args);
+    result = vsnprintf(NULL, 0, fmt, args);
+    va_end(args);
+    if (result < 0) {
+        va_end(args_copy);
+        return NULL;
+    }
+    buflen = (size_t)result + 1;
+    buf = (char *)calloc(buflen, 1);
+    result = vsnprintf(buf, buflen, fmt, args_copy);
+    va_end(args_copy);
+    if (result < 0) {
+        free(buf);
+        return NULL;
+    }
+    return buf;
+}
 
 double __mtime(const char *filename) {
     double ret = -DBL_MAX;
