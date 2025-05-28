@@ -12,12 +12,13 @@ You should have received a copy of the GNU General Public License along with thi
 #define MAKE_H
 
 #ifdef _MSC_VER
-    #define _CRT_SECURE_NO_WARNINGS
+    #pragma warning(disable : 4996) // such as "'strcpy' unsafe" or "'rmdir' deprecated"
 #endif
 #include <assert.h>
 #include <errno.h>
 #include <float.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,17 +32,6 @@ You should have received a copy of the GNU General Public License along with thi
     #include <sys/stat.h>
     #include <sys/wait.h>
     #include <unistd.h>
-#endif
-
-// https://en.cppreference.com/w/c/preprocessor/replace
-#if __STDC_VERSION__ >= 199901L // c99
-    #include <stdbool.h>
-#else
-// https://stackoverflow.com/questions/1608318/is-bool-a-native-c-type/1608350
-typedef enum {
-    false = (1 == 0),
-    true = (!false)
-} bool;
 #endif
 
 enum compiler_type { msvc,
@@ -357,6 +347,7 @@ void __sleep(double secs) {
 
 #define run(__arg_0)                                           \
     do {                                                       \
+        _log("%s", __arg_0);                                   \
         int ret = system(__arg_0);                             \
         if (ret != 0) {                                        \
             _error_exit("%s: exit code is %d.", __arg_0, ret); \
@@ -477,6 +468,7 @@ void _parallel_run(const char *file, int line, const char *cmd) {
             __sleep(0.2);
         }
     }
+    _log_x("%s", file, line, cmd);
     {
 #ifdef _WIN32
         STARTUPINFOA si = {sizeof(STARTUPINFOA)};
