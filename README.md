@@ -127,50 +127,31 @@ void cleanup(const char *dir, const char *base, const char *ext) {
 }
 
 int main(int argc, char **argv) {
-    enum {
-        debug,
-        release,
-        clean,
-        help
-    } target;
-    if (argc == 1) {
-        target = debug;
-    } else if (argc == 2) {
-        if (equals(argv[1], "debug")) {
-            target = debug;
-        } else if (equals(argv[1], "release")) {
-            target = release;
-        } else if (equals(argv[1], "clean")) {
-            target = clean;
-        } else if (equals(argv[1], "-h", "--help")) {
-            target = help;
-        } else {
-            printf("Invalid target: %s\n", argv[1]);
-            target = help;
-        }
-    } else {
-        printf("Too many arguments\n");
-        target = help;
-    }
-    switch (target) {
-    case debug:
+    if (argc == 1 || (argc == 2 && equals(argv[1], "debug"))) {
         cc = compiler == msvc ? "cl /nologo /c /W3 /MD" : "gcc -c -Wall";
         link = compiler == msvc ? "link /nologo /debug" : "gcc -fvisibility=hidden -fvisibility-inlines-hidden -static -static-libgcc";
         build();
         return EXIT_SUCCESS;
-    case release:
-        cc = compiler == msvc ? "cl /nologo /c /W3 /MD /O2 /DNOLOGINFO" : "gcc -c -Wall -O3 -DNOLOGINFO";
-        link = compiler == msvc ? "link /nologo" : "gcc -fvisibility=hidden -fvisibility-inlines-hidden -static -static-libgcc -s -Wl,--exclude-all-symbols";
-        build();
-        return EXIT_SUCCESS;
-    case clean:
-        listdir(bin_dir, cleanup);
-        listdir(build_dir, cleanup);
-        return EXIT_SUCCESS;
-    default:
-        printf("Usage: %s [debug|release|clean|-h|--help], default is debug\n", argv[0]);
-        return EXIT_FAILURE;
+    } else if (argc == 2) {
+        if (equals(argv[1], "release")) {
+            cc = compiler == msvc ? "cl /nologo /c /W3 /MD /O2 /DNOLOGINFO" : "gcc -c -Wall -O3 -DNOLOGINFO";
+            link = compiler == msvc ? "link /nologo" : "gcc -fvisibility=hidden -fvisibility-inlines-hidden -static -static-libgcc -s -Wl,--exclude-all-symbols";
+            build();
+            return EXIT_SUCCESS;
+        } else if (equals(argv[1], "clean")) {
+            listdir(bin_dir, cleanup);
+            listdir(build_dir, cleanup);
+            return EXIT_SUCCESS;
+        } else if (equals(argv[1], "-h", "--help")) {
+            ;
+        } else {
+            printf("Invalid target: %s\n", argv[1]);
+        }
+    } else {
+        printf("Too many arguments\n");
     }
+    printf("Usage: %s [debug|release|clean|-h|--help], default is debug\n", argv[0]);
+    return EXIT_FAILURE;
 }
 
 ```
