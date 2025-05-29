@@ -59,25 +59,36 @@ You should have received a copy of the GNU General Public License along with thi
 #define dll_file_path bin_dir dll_file_name
 #define lib_file bin_dir proj libext
 char *cc = NULL;
-char *link = NULL;
+char *ld = NULL;
 
-void compile_library(const char *obj_file, const char *c_file) {
-    char *cmd = compiler == msvc ? concat(cc, " /DDLL /DEXPORT /Fo", obj_file, " ", c_file) : concat(cc, " -D DLL -D EXPORT -o ", obj_file, " ", c_file);
-    async(cmd);
-    free(cmd);
-}
+// use macro instead of function to output correct line number
+#define compile_library(obj_file, c_file)                                             \
+    do {                                                                              \
+        char *cmd = compiler == msvc                                                  \
+                        ? concat(cc, " /DDLL /DEXPORT /Fo", obj_file, " ", c_file)    \
+                        : concat(cc, " -D DLL -D EXPORT -o ", obj_file, " ", c_file); \
+        async(cmd);                                                                   \
+        free(cmd);                                                                    \
+    } while (0)
 
-void compile_executable(const char *obj_file, const char *c_file) {
-    char *cmd = compiler == msvc ? concat(cc, " /DDLL /Fo", obj_file, " ", c_file) : concat(cc, " -D DLL -o ", obj_file, " ", c_file);
-    async(cmd);
-    free(cmd);
-}
+#define compile_executable(obj_file, c_file)                                \
+    do {                                                                    \
+        char *cmd = compiler == msvc                                        \
+                        ? concat(cc, " /DDLL /Fo", obj_file, " ", c_file)   \
+                        : concat(cc, " -D DLL -o ", obj_file, " ", c_file); \
+        async(cmd);                                                         \
+        free(cmd);                                                          \
+    } while (0)
 
-void link_executable(const char *exe_file, const char *obj_file) {
-    char *cmd = compiler == msvc ? concat(link, " /out:", exe_file, " ", obj_file, " ", lib_file) : concat(link, " -o ", exe_file, " ", obj_file, " -L", bin_dir, " -l:", dll_file_name);
-    async(cmd);
-    free(cmd);
-}
+#define link_executable(exe_file, obj_file)                                                           \
+    do {                                                                                              \
+        char *cmd =                                                                                   \
+            compiler == msvc                                                                          \
+                ? concat(ld, " /out:", exe_file, " ", obj_file, " ", lib_file)                        \
+                : concat(ld, " -o ", exe_file, " ", obj_file, " -L", bin_dir, " -l:", dll_file_name); \
+        async(cmd);                                                                                   \
+        free(cmd);                                                                                    \
+    } while (0)
 
 #define e(__arg_base) (bin_dir __arg_base exeext)
 #define o(__arg_base) (build_dir __arg_base objext)
@@ -102,7 +113,9 @@ void build() {
     await();
     if (mtime(dll_file_path) < mtime(o("js-base"), o("js-data"), o("js-vm"))) {
         char *objs = join(" ", o("js-base"), o("js-data"), o("js-vm"));
-        char *cmd = compiler == msvc ? concat(link, " /dll /out:", dll_file_path, " ", objs) : concat(link, " -shared -o ", dll_file_path, " ", objs);
+        char *cmd = compiler == msvc
+                        ? concat(ld, " /dll /out:", dll_file_path, " ", objs)
+                        : concat(ld, " -shared -o ", dll_file_path, " ", objs);
         async(cmd);
         free(cmd);
         free(objs);
@@ -126,16 +139,21 @@ void cleanup(const char *dir, const char *base, const char *ext) {
     }
 }
 
+#define cc_msvc "cl /nologo /c /W3 /MD"
+#define cc_gcc "gcc -c -Wall"
+#define ld_msvc "link /nologo"
+#define ld_gcc "gcc -fvisibility=hidden -fvisibility-inlines-hidden -static -static-libgcc"
+
 int main(int argc, char **argv) {
     if (argc == 1 || (argc == 2 && equals(argv[1], "debug"))) {
-        cc = compiler == msvc ? "cl /nologo /c /W3 /MD" : "gcc -c -Wall";
-        link = compiler == msvc ? "link /nologo /debug" : "gcc -fvisibility=hidden -fvisibility-inlines-hidden -static -static-libgcc";
+        cc = compiler == msvc ? cc_msvc : cc_gcc;
+        ld = compiler == msvc ? ld_msvc " /debug" : ld_gcc;
         build();
         return EXIT_SUCCESS;
     } else if (argc == 2) {
         if (equals(argv[1], "release")) {
-            cc = compiler == msvc ? "cl /nologo /c /W3 /MD /O2 /DNOLOGINFO" : "gcc -c -Wall -O3 -DNOLOGINFO";
-            link = compiler == msvc ? "link /nologo" : "gcc -fvisibility=hidden -fvisibility-inlines-hidden -static -static-libgcc -s -Wl,--exclude-all-symbols";
+            cc = compiler == msvc ? cc_msvc " /O2 /DNOLOGINFO" : cc_gcc " -O3 -DNOLOGINFO";
+            ld = compiler == msvc ? ld_msvc : ld_gcc " -s -Wl,--exclude-all-symbols";
             build();
             return EXIT_SUCCESS;
         } else if (equals(argv[1], "clean")) {
