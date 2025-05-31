@@ -43,23 +43,23 @@ enum os_type { windows,
 #ifdef _MSC_VER
     #define libext ".lib"
     #define objext ".obj"
-    #define compiler msvc
+const enum compiler_type compiler = msvc; // DON'T use #define, because cannot used in switch
 #else
     #define libext ".a"
     #define objext ".o"
-    #define compiler gcc
+const enum compiler_type compiler = gcc;
 #endif
 
 #ifdef _WIN32
     #define dllext ".dll" // use define instead of const for easily string literal concatenation
     #define exeext ".exe"
     #define pathsep "\\"
-    #define os windows
+const enum os_type os = windows;
 #else
     #define dllext ".so"
     #define exeext ""
     #define pathsep "/"
-    #define os posix
+const enum os_type os = posix;
 #endif
 
 #ifndef numargs
