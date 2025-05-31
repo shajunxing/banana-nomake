@@ -12,12 +12,12 @@ Brief guide: use `listdir` to batch process multiple files in a directory, use `
 
 |Constants|Description|
 |-|-|
-|`const enum compiler_type compiler`|Compiler type, can be one of `msvc` `gcc`.|
+|`#define compiler`|Compiler type, can be one of enum value `msvc` `gcc`.|
 |`#define dllext`|File extension of shared library, e.g `".dll"` `".so"`|
 |`#define exeext`|File extension of executable, e.g `".exe"`|
 |`#define libext`|File extension of library, e.g `".lib"` `".a"`|
 |`#define objext`|File extension of compiled object, e.g `".obj"` `".o"`|
-|`const enum os_type os`|Operating system type, can be one of `windows` `posix`.|
+|`#define os`|Operating system type, can be one of enum value `windows` `posix`.|
 |`#define pathsep`|File system path seperator, , e.g `"\\"` `"/"`|
 
 |Functions|Description|
