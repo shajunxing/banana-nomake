@@ -1,4 +1,4 @@
-# Banana Make，只用一个make.h文件，取代那些令人生厌的gmake、nmake、cmake......构建系统
+# Banana NoMake，只需一个.h文件，直接使用C语言写脚本，取代那些令人生厌的gmake、nmake、cmake......
 
 本文使用 [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/) 许可。
 

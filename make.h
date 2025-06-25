@@ -389,7 +389,7 @@ void _parallel_zero_out(size_t slot) {
     free(_parallel_workers[slot].cmd);
     _parallel_workers[slot].cmd = NULL;
 }
-void _parallel_kill_all() {
+void _parallel_kill_all() { // TODO: kill running process may cause generated file corruped, how about sending ctrl-c?
     size_t slot;
     for (slot = 0; slot < _parallel_num_workers; slot++) {
         if (_parallel_workers[slot].proc != 0) {
