@@ -43,25 +43,25 @@ enum os_type { windows,
 #ifdef _MSC_VER
     #define libext ".lib"
     #define objext ".obj"
-const enum compiler_type compiler = msvc; // DON'T use #define, because cannot used in switch
-#else
+    #define compiler msvc
+#elif defined(__GNUC__)
     #define libext ".a"
     #define objext ".o"
-const enum compiler_type compiler = gcc;
+    #define compiler gcc
+#else
+    #error Only msvc and gcc are supported
 #endif
 
 #ifdef _WIN32
     #define dllext ".dll" // use define instead of const for easily string literal concatenation
     #define exeext ".exe"
     #define pathsep "\\"
-const enum os_type os = windows;
-#elif defined(__GNUC__)
+    #define os windows
+#else
     #define dllext ".so"
     #define exeext ""
     #define pathsep "/"
-const enum os_type os = posix;
-#else
-    #error Only msvc and gcc are supported
+    #define os posix
 #endif
 
 #ifndef numargs

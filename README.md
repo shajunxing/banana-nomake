@@ -10,14 +10,15 @@ I don't like those build systems, I think they break their own belief "mechanism
 
 Brief guide: use `listdir` to batch process multiple files in a directory, use `max` `mtime` to compare file modification times, use `append` `concat` `endswith` `equals` `format` `join` `startswith` to handle strings, and use `async` `await` `run` to execute commands.
 
-For example, in a certain project, source code is in `src` directory, compiled intermediate files are in `build` directory, and target files are in `bin` directory. Since C language string literals support direct concatenation, it's really easy to define file names, directories, and command lines.
+For example, in a certain project, source code is in `src` directory, since C language string literals support direct concatenation, it's really easy to define file names, directories, and command lines.
 
 ```c
-#define bin_dir "bin" pathsep
+#define src_dir "src" pathsep
 // ...
-#define example_exe bin_dir "example" exeext
+#define var_h src_dir "var.h"
+#define var_c src_dir "var.c"
 // ...
-#ifdef _MSC_VER
+#if compiler == msvc
     #define cc "cl /nologo /c /W3 /MD /Zp /utf-8 /std:clatest /O2 /Fo"
     #define ld "link /nologo /incremental:no /nodefaultlib /out:"
 // ...
@@ -40,51 +41,49 @@ Because C is Turing-Complete programming language, it can easily implement more 
 #define banana_script_src_dir ".." pathsep "banana-script" pathsep "src" pathsep
 #define js_common_h banana_script_src_dir "js-common.h"
 #define js_common_c banana_script_src_dir "js-common.c"
-#define js_common_obj build_dir "js_common" objext
+#define js_common_o build_dir "js_common" objext
 #define js_data_h banana_script_src_dir "js-data.h"
 #define js_data_c banana_script_src_dir "js-data.c"
-#define js_data_obj build_dir "js_data" objext
+#define js_data_o build_dir "js_data" objext
 #define var_h src_dir "var.h"
 #define var_c src_dir "var.c"
-#define var_obj build_dir "var" objext
+#define var_o build_dir "var" objext
 #define example_c src_dir "example.c"
-#define example_obj build_dir "example" objext
+#define example_o build_dir "example" objext
 #define example_exe bin_dir "example" exeext
-#ifdef _MSC_VER
+#if compiler == msvc
     #define cc "cl /nologo /c /W3 /MD /Zp /utf-8 /std:clatest /O2 /Fo"
     #define ld "link /nologo /incremental:no /nodefaultlib /out:"
     #define extra_libs " msvcrt.lib libvcruntime.lib ucrt.lib kernel32.lib user32.lib"
-#elif defined(__GNUC__)
+#else
     #define cc "gcc -c -Wall -O3 -o "
     #define ld "gcc -fvisibility=hidden -fvisibility-inlines-hidden -static -static-libgcc -s -Wl,--exclude-all-symbols -o "
     #define extra_libs ""
-#else
-    #error Only msvc and gcc are supported
 #endif
-#define compile_js_common cc js_common_obj " " js_common_c
-#define compile_js_data cc js_data_obj " " js_data_c
-#define compile_var cc var_obj " " var_c
-#define compile_example cc example_obj " " example_c
-#define link_example ld example_exe " " example_obj " " var_obj " " js_data_obj " " js_common_obj extra_libs
+#define compile_js_common cc js_common_o " " js_common_c
+#define compile_js_data cc js_data_o " " js_data_c
+#define compile_var cc var_o " " var_c
+#define compile_example cc example_o " " example_c
+#define link_example ld example_exe " " example_o " " var_o " " js_data_o " " js_common_o extra_libs
 
 void build() {
     mkdir(bin_dir);
     mkdir(build_dir);
     // DON'T compare obj because it is generated asynchronously
-    if (mtime(js_common_obj) < mtime(js_common_h, js_common_c)) {
+    if (mtime(js_common_o) < mtime(js_common_h, js_common_c)) {
         async(compile_js_common);
     }
-    if (mtime(js_data_obj) < mtime(js_data_h, js_data_c, js_common_h)) {
+    if (mtime(js_data_o) < mtime(js_data_h, js_data_c, js_common_h)) {
         async(compile_js_data);
     }
-    if (mtime(var_obj) < mtime(var_h, var_c, js_data_h js_common_h)) {
+    if (mtime(var_o) < mtime(var_h, var_c, js_data_h, js_common_h)) {
         async(compile_var);
     }
-    if (mtime(example_obj) < mtime(example_c, var_h, js_data_h js_common_h)) {
+    if (mtime(example_o) < mtime(example_c, var_h, js_data_h, js_common_h)) {
         async(compile_example);
     }
     await();
-    if (mtime(example_exe) < mtime(example_obj, var_h, js_data_h, js_common_h)) {
+    if (mtime(example_exe) < mtime(example_o, var_o, js_data_o, js_common_o)) {
         run(link_example);
     }
 }
@@ -126,12 +125,12 @@ Below are detailed API definitions:
 
 |Constants|Description|
 |-|-|
-|`const enum compiler_type compiler`|Compiler type, can be one of `msvc` `gcc`.|
+|`#define compiler`|Compiler type, can be one of enumeration `compiler_type` of `msvc` `gcc`.|
 |`#define dllext`|File extension of shared library, e.g `".dll"` `".so"`|
 |`#define exeext`|File extension of executable, e.g `".exe"`|
 |`#define libext`|File extension of library, e.g `".lib"` `".a"`|
 |`#define objext`|File extension of compiled object, e.g `".obj"` `".o"`|
-|`const enum os_type os`|Operating system type, can be one of `windows` `posix`.|
+|`#define os`|Operating system type, can be one of enumeration `os_type` of `windows` `posix`.|
 |`#define pathsep`|File system path seperator, , e.g `"\\"` `"/"`|
 
 |Functions|Description|
