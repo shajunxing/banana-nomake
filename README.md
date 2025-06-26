@@ -6,9 +6,12 @@ This article is openly licensed via [CC BY-NC-ND 4.0](https://creativecommons.or
 
 Project Address: <https://github.com/shajunxing/banana-nomake>
 
-I don't like those build systems, I think they break their own belief "mechanism better than policy" and "keep it simple stupid". Why should one learn those ugly and rigid rules? Wouldn't a Turing-Complete programming language be better? Since C compiler is essential, encapsulate necessary functions into a header file, most important points I summarized as follows: 1. **Recursive traversal of file and directories**; 2. **Comparison of file timestamps**; 3. **Serial and parallel execution of commands**, then I can happily write scripts in C, right? Customers would be happy too, as they won't need to install any additional build systems, they can simply type `gcc script.c && ./a.out` or `cl script.c && script.exe`, isn't it quite easy?
+I don't like those build systems, I think they break their own belief "mechanism better than policy" and "keep it simple stupid". Why should one learn those ugly and rigid rules? Wouldn't a Turing-Complete programming language be better? Since C compiler is essential, encapsulate necessary functions into a header file, then I can happily write scripts in C, right? Most important points I summarized as follows: 
 
-Brief guide: use `listdir` to batch process multiple files in a directory, use `max` `mtime` to compare file modification times, use `append` `concat` `endswith` `equals` `format` `join` `startswith` to handle strings, and use `async` `await` `run` to execute commands.
+1. **Comparison of file timestamps**
+2. **Serial and parallel execution of commands**
+
+Customers would be happy too, as they won't need to install any additional build systems, they can simply type `gcc script.c && ./a.out` or `cl script.c && script.exe`, isn't it quite easy?
 
 For example, in a certain project, source code is in `src` directory, since C language string literals support direct concatenation, it's really easy to define file names, directories, and command lines.
 
@@ -32,9 +35,11 @@ if (mtime(example_exe) < mtime(example_obj, var_h, js_data_h, js_common_h)) {
 }
 ```
 
-Because C is Turing-Complete programming language, it can easily implement more complex and flexible logic, which is something those make systems can't compare to. Here's a complete example where I use `async()` and `await()` to execute commands concurrently on multiple cores, and it's pretty straightforward in C. On the other hand, even if those make systems could pull it off, configuration rules would be all over the place and hard to understand.
+Because C is Turing-Complete programming language, it can easily implement more complex and flexible logic, which is something those make systems can't compare to. Here's a complete example where I use `async()` and `await()` to execute commands parallely, and it's pretty straightforward in C. On the other hand, even if those make systems could pull it off, configuration rules would be all over the place and hard to understand.
 
 ```c
+#include "../banana-nomake/make.h"
+
 #define bin_dir "bin" pathsep
 #define build_dir "build" pathsep
 #define src_dir "src" pathsep
@@ -121,7 +126,7 @@ int main(int argc, char **argv) {
 }
 ```
 
-Below are detailed API definitions:
+Below are detailed API description:
 
 |Constants|Description|
 |-|-|
