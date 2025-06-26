@@ -4,11 +4,125 @@ This article is openly licensed via [CC BY-NC-ND 4.0](https://creativecommons.or
 
 [English Version](README.md) | [Chinese Version](README_zhCN.md)
 
-Project Address: <https://github.com/shajunxing/banana-make>
+Project Address: <https://github.com/shajunxing/banana-nomake>
 
-I don't like those build systems, I think they break their own belief "mechanism better than policy" and "keep it simple stupid". Why should one learn those ugly and rigid rules? Wouldn't a Turing-Complete programming language be better? Since C compiler is essential, encapsulate necessary functions into a header file, most important points I summarized as follows: 1. **Recursive traversal of file and directories**; 2. **Comparison of file timestamps**; 3. **Serial and parallel execution of commands**, then I can happily write scripts in C, right? Customers would be happy too, as they won't need to install any additional build systems, they can simply type `gcc make.c && ./a.out` or `cl make.c && make.exe`, isn't it quite easy?
+I don't like those build systems, I think they break their own belief "mechanism better than policy" and "keep it simple stupid". Why should one learn those ugly and rigid rules? Wouldn't a Turing-Complete programming language be better? Since C compiler is essential, encapsulate necessary functions into a header file, most important points I summarized as follows: 1. **Recursive traversal of file and directories**; 2. **Comparison of file timestamps**; 3. **Serial and parallel execution of commands**, then I can happily write scripts in C, right? Customers would be happy too, as they won't need to install any additional build systems, they can simply type `gcc script.c && ./a.out` or `cl script.c && script.exe`, isn't it quite easy?
 
-Brief guide: use `listdir` to batch process multiple files in a directory, use `max` `mtime` to compare file modification times, use `append` `concat` `endswith` `equals` `format` `join` `startswith` to handle strings, and use `async` `await` `run` to execute commands. Below are detailed API definitions:
+Brief guide: use `listdir` to batch process multiple files in a directory, use `max` `mtime` to compare file modification times, use `append` `concat` `endswith` `equals` `format` `join` `startswith` to handle strings, and use `async` `await` `run` to execute commands.
+
+For example, in a certain project, source code is in `src` directory, compiled intermediate files are in `build` directory, and target files are in `bin` directory. Since C language string literals support direct concatenation, it's really easy to define file names, directories, and command lines.
+
+```c
+#define bin_dir "bin" pathsep
+// ...
+#define example_exe bin_dir "example" exeext
+// ...
+#ifdef _MSC_VER
+    #define cc "cl /nologo /c /W3 /MD /Zp /utf-8 /std:clatest /O2 /Fo"
+    #define ld "link /nologo /incremental:no /nodefaultlib /out:"
+// ...
+```
+
+Dependency relationship in traditional makefile, like `example_exe: example_obj var_h js_data_h js_common_h`, basically just compares modification times of files before and after colon. If before is older than after, it runs following commands. So, if you write it directly in C, it becomes a lot clearer and more straightforward.
+
+```c
+if (mtime(example_exe) < mtime(example_obj, var_h, js_data_h, js_common_h)) {
+    run(link_example);
+}
+```
+
+Because C is Turing-Complete programming language, it can easily implement more complex and flexible logic, which is something those make systems can't compare to. Here's a complete example where I use `async()` and `await()` to execute commands concurrently on multiple cores, and it's pretty straightforward in C. On the other hand, even if those make systems could pull it off, configuration rules would be all over the place and hard to understand.
+
+```c
+#define bin_dir "bin" pathsep
+#define build_dir "build" pathsep
+#define src_dir "src" pathsep
+#define banana_script_src_dir ".." pathsep "banana-script" pathsep "src" pathsep
+#define js_common_h banana_script_src_dir "js-common.h"
+#define js_common_c banana_script_src_dir "js-common.c"
+#define js_common_obj build_dir "js_common" objext
+#define js_data_h banana_script_src_dir "js-data.h"
+#define js_data_c banana_script_src_dir "js-data.c"
+#define js_data_obj build_dir "js_data" objext
+#define var_h src_dir "var.h"
+#define var_c src_dir "var.c"
+#define var_obj build_dir "var" objext
+#define example_c src_dir "example.c"
+#define example_obj build_dir "example" objext
+#define example_exe bin_dir "example" exeext
+#ifdef _MSC_VER
+    #define cc "cl /nologo /c /W3 /MD /Zp /utf-8 /std:clatest /O2 /Fo"
+    #define ld "link /nologo /incremental:no /nodefaultlib /out:"
+    #define extra_libs " msvcrt.lib libvcruntime.lib ucrt.lib kernel32.lib user32.lib"
+#elif defined(__GNUC__)
+    #define cc "gcc -c -Wall -O3 -o "
+    #define ld "gcc -fvisibility=hidden -fvisibility-inlines-hidden -static -static-libgcc -s -Wl,--exclude-all-symbols -o "
+    #define extra_libs ""
+#else
+    #error Only msvc and gcc are supported
+#endif
+#define compile_js_common cc js_common_obj " " js_common_c
+#define compile_js_data cc js_data_obj " " js_data_c
+#define compile_var cc var_obj " " var_c
+#define compile_example cc example_obj " " example_c
+#define link_example ld example_exe " " example_obj " " var_obj " " js_data_obj " " js_common_obj extra_libs
+
+void build() {
+    mkdir(bin_dir);
+    mkdir(build_dir);
+    // DON'T compare obj because it is generated asynchronously
+    if (mtime(js_common_obj) < mtime(js_common_h, js_common_c)) {
+        async(compile_js_common);
+    }
+    if (mtime(js_data_obj) < mtime(js_data_h, js_data_c, js_common_h)) {
+        async(compile_js_data);
+    }
+    if (mtime(var_obj) < mtime(var_h, var_c, js_data_h js_common_h)) {
+        async(compile_var);
+    }
+    if (mtime(example_obj) < mtime(example_c, var_h, js_data_h js_common_h)) {
+        async(compile_example);
+    }
+    await();
+    if (mtime(example_exe) < mtime(example_obj, var_h, js_data_h, js_common_h)) {
+        run(link_example);
+    }
+}
+
+void cleanup(const char *dir, const char *base, const char *ext) {
+    if (base) {
+        char *file_name = concat(dir, base, ext);
+        remove(file_name);
+        free(file_name);
+    } else {
+        listdir(dir, cleanup);
+        rmdir(dir);
+    }
+}
+
+int main(int argc, char **argv) {
+    if (argc == 1) {
+        build();
+        return EXIT_SUCCESS;
+    } else if (argc == 2) {
+        if (equals(argv[1], "clean")) {
+            listdir(bin_dir, cleanup);
+            listdir(build_dir, cleanup);
+            return EXIT_SUCCESS;
+        } else if (equals(argv[1], "-h", "--help")) {
+            ;
+        } else {
+            printf("Invalid target: %s\n", argv[1]);
+        }
+    } else {
+        printf("Too many arguments\n");
+    }
+    printf("Usage: %s [clean|-h|--help]\n", argv[0]);
+    return EXIT_FAILURE;
+}
+```
+
+Below are detailed API definitions:
 
 |Constants|Description|
 |-|-|
@@ -36,140 +150,3 @@ Brief guide: use `listdir` to batch process multiple files in a directory, use `
 |`void run(const char *cmd)`|Run command line `cmd`. If return value is not 0, print error message and exit program.|
 |`bool startswith(const char *str, ...)`|Determine whether `str` starts with any of rest parameters.|
 
-Here's an example:
-
-```c
-/*
-Copyright 2024-2025 ShaJunXing <shajunxing@hotmail.com>
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
-*/
-
-#include "../banana-make/make.h"
-
-#define proj "js"
-#define bin_dir "bin" pathsep
-#define build_dir "build" pathsep
-#define src_dir "src" pathsep
-#define dll_file_name proj dllext
-#define dll_file_path bin_dir dll_file_name
-#define lib_file bin_dir proj libext
-char *cc = NULL;
-char *ld = NULL;
-
-// use macro instead of function to output correct line number
-#define compile_library(obj_file, c_file)                                             \
-    do {                                                                              \
-        char *cmd = compiler == msvc                                                  \
-                        ? concat(cc, " /DDLL /DEXPORT /Fo", obj_file, " ", c_file)    \
-                        : concat(cc, " -D DLL -D EXPORT -o ", obj_file, " ", c_file); \
-        async(cmd);                                                                   \
-        free(cmd);                                                                    \
-    } while (0)
-
-#define compile_executable(obj_file, c_file)                                \
-    do {                                                                    \
-        char *cmd = compiler == msvc                                        \
-                        ? concat(cc, " /DDLL /Fo", obj_file, " ", c_file)   \
-                        : concat(cc, " -D DLL -o ", obj_file, " ", c_file); \
-        async(cmd);                                                         \
-        free(cmd);                                                          \
-    } while (0)
-
-#define link_executable(exe_file, obj_file)                                                           \
-    do {                                                                                              \
-        char *cmd =                                                                                   \
-            compiler == msvc                                                                          \
-                ? concat(ld, " /out:", exe_file, " ", obj_file, " ", lib_file)                        \
-                : concat(ld, " -o ", exe_file, " ", obj_file, " -L", bin_dir, " -l:", dll_file_name); \
-        async(cmd);                                                                                   \
-        free(cmd);                                                                                    \
-    } while (0)
-
-#define e(__arg_base) (bin_dir __arg_base exeext)
-#define o(__arg_base) (build_dir __arg_base objext)
-#define c(__arg_base) (src_dir __arg_base ".c")
-#define h(__arg_base) (src_dir __arg_base ".h")
-
-void build() {
-    mkdir(bin_dir);
-    mkdir(build_dir);
-    if (mtime(o("js-base")) < mtime(c("js-base"), h("js-base"))) {
-        compile_library(o("js-base"), c("js-base"));
-    }
-    if (mtime(o("js-data")) < mtime(c("js-data"), h("js-data"), h("js-base"))) {
-        compile_library(o("js-data"), c("js-data"));
-    }
-    if (mtime(o("js-vm")) < mtime(c("js-vm"), h("js-vm"), h("js-data"), h("js-base"))) {
-        compile_library(o("js-vm"), c("js-vm"));
-    }
-    if (mtime(o("test")) < mtime(c("test"), h("test"), h("js-vm"), h("js-data"), h("js-base"))) {
-        compile_executable(o("test"), c("test"));
-    }
-    await();
-    if (mtime(dll_file_path) < mtime(o("js-base"), o("js-data"), o("js-vm"))) {
-        char *objs = join(" ", o("js-base"), o("js-data"), o("js-vm"));
-        char *cmd = compiler == msvc
-                        ? concat(ld, " /dll /out:", dll_file_path, " ", objs)
-                        : concat(ld, " -shared -o ", dll_file_path, " ", objs);
-        async(cmd);
-        free(cmd);
-        free(objs);
-    }
-    await();
-    if (mtime(e("test")) < mtime(o("test"), dll_file_path)) {
-        link_executable(e("test"), o("test"));
-    }
-    await();
-}
-
-void cleanup(const char *dir, const char *base, const char *ext) {
-    // printf("cleanup: %s%s%s\n", dir, base, ext);
-    if (base) {
-        char *file_name = concat(dir, base, ext);
-        remove(file_name);
-        free(file_name);
-    } else {
-        listdir(dir, cleanup);
-        rmdir(dir);
-    }
-}
-
-#define cc_msvc "cl /nologo /c /W3 /MD"
-#define cc_gcc "gcc -c -Wall"
-#define ld_msvc "link /nologo"
-#define ld_gcc "gcc -fvisibility=hidden -fvisibility-inlines-hidden -static -static-libgcc"
-
-int main(int argc, char **argv) {
-    if (argc == 1 || (argc == 2 && equals(argv[1], "debug"))) {
-        cc = compiler == msvc ? cc_msvc : cc_gcc;
-        ld = compiler == msvc ? ld_msvc " /debug" : ld_gcc;
-        build();
-        return EXIT_SUCCESS;
-    } else if (argc == 2) {
-        if (equals(argv[1], "release")) {
-            cc = compiler == msvc ? cc_msvc " /O2 /DNOLOGINFO" : cc_gcc " -O3 -DNOLOGINFO";
-            ld = compiler == msvc ? ld_msvc : ld_gcc " -s -Wl,--exclude-all-symbols";
-            build();
-            return EXIT_SUCCESS;
-        } else if (equals(argv[1], "clean")) {
-            listdir(bin_dir, cleanup);
-            listdir(build_dir, cleanup);
-            return EXIT_SUCCESS;
-        } else if (equals(argv[1], "-h", "--help")) {
-            ;
-        } else {
-            printf("Invalid target: %s\n", argv[1]);
-        }
-    } else {
-        printf("Too many arguments\n");
-    }
-    printf("Usage: %s [debug|release|clean|-h|--help], default is debug\n", argv[0]);
-    return EXIT_FAILURE;
-}
-
-```

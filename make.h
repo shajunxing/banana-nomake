@@ -55,11 +55,13 @@ const enum compiler_type compiler = gcc;
     #define exeext ".exe"
     #define pathsep "\\"
 const enum os_type os = windows;
-#else
+#elif defined(__GNUC__)
     #define dllext ".so"
     #define exeext ""
     #define pathsep "/"
 const enum os_type os = posix;
+#else
+    #error Only msvc and gcc are supported
 #endif
 
 #ifndef numargs
