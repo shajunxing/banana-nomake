@@ -34,11 +34,13 @@ You should have received a copy of the GNU General Public License along with thi
     #include <unistd.h>
 #endif
 
-enum compiler_type { msvc,
-                     gcc };
-
-enum os_type { windows,
-               posix };
+// DON'T use enum, cannot be used in #if ==
+// see https://stackoverflow.com/questions/56522037/why-cant-i-compare-macro-and-enum-using-if
+// see https://gcc.gnu.org/onlinedocs/cpp/If.html#If
+#define msvc 0
+#define gcc 1
+#define windows 0
+#define posix 1
 
 #ifdef _MSC_VER
     #define libext ".lib"
@@ -78,10 +80,10 @@ enum os_type { windows,
 
 #define _log_x(__arg_0, __arg_1, __arg_2, ...) printf("%s:%d: " __arg_0 "\n", __arg_1, __arg_2, ##__VA_ARGS__)
 #define _log(__arg_0, ...) _log_x(__arg_0, __FILE__, __LINE__, ##__VA_ARGS__)
-#define _error_exit(__arg_0, ...)     \
-    do {                              \
+#define _error_exit(__arg_0, ...) \
+    do { \
         _log(__arg_0, ##__VA_ARGS__); \
-        exit(EXIT_FAILURE);           \
+        exit(EXIT_FAILURE); \
     } while (0)
 #ifdef _WIN32
 const char *_windows_error_string() {
@@ -90,7 +92,7 @@ const char *_windows_error_string() {
     static char es[256];
     memset(es, 0, sizeof(es));
     FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                   NULL, GetLastError(), 1033, es, sizeof(es), NULL);
+        NULL, GetLastError(), 1033, es, sizeof(es), NULL);
     return es;
 }
     #define _windows_error_exit() _error_exit("error %ld: %s", GetLastError(), _windows_error_string())
@@ -347,13 +349,13 @@ void __sleep(double secs) {
 #endif
 }
 
-#define run(__arg_0)                                           \
-    do {                                                       \
-        _log("%s", __arg_0);                                   \
-        int ret = system(__arg_0);                             \
-        if (ret != 0) {                                        \
+#define run(__arg_0) \
+    do { \
+        _log("%s", __arg_0); \
+        int ret = system(__arg_0); \
+        if (ret != 0) { \
             _error_exit("%s: exit code is %d.", __arg_0, ret); \
-        }                                                      \
+        } \
     } while (0)
 
 unsigned _parallel_num_workers = 0;

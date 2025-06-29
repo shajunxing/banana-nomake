@@ -130,12 +130,12 @@ int main(int argc, char **argv) {
 
 |Constants|Description|
 |-|-|
-|`#define compiler`|Compiler type, can be one of enumeration `compiler_type` of `msvc` `gcc`.|
+|`#define compiler`|Compiler type, can be one of `msvc` `gcc`.|
 |`#define dllext`|File extension of shared library, e.g `".dll"` `".so"`|
 |`#define exeext`|File extension of executable, e.g `".exe"`|
 |`#define libext`|File extension of library, e.g `".lib"` `".a"`|
 |`#define objext`|File extension of compiled object, e.g `".obj"` `".o"`|
-|`#define os`|Operating system type, can be one of enumeration `os_type` of `windows` `posix`.|
+|`#define os`|Operating system type, can be one of `windows` `posix`.|
 |`#define pathsep`|File system path seperator, , e.g `"\\"` `"/"`|
 
 |Functions|Description|
